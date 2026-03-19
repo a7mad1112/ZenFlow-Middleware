@@ -1,5 +1,6 @@
 import { type Express, type Request, type Response } from 'express';
 import { z } from 'zod';
+import { getQueue } from '../config/queue.js';
 import { logger } from '../shared/logger.js';
 import type { WebhookPayload } from '../models/types.js';
 
@@ -15,7 +16,7 @@ export function setupRoutes(app: Express): void {
    * POST /webhooks
    * Ingests webhook events and enqueues them for processing
    */
-  app.post('/webhooks', (req: Request, res: Response): void => {
+  app.post('/webhooks', async (req: Request, res: Response): Promise<void> => {
     try {
       const payload = webhookPayloadSchema.parse(req.body);
 
@@ -29,11 +30,24 @@ export function setupRoutes(app: Express): void {
         event_type: webhook.eventType,
       });
 
-      // TODO: Enqueue task with pg-boss
+      // Enqueue task with pg-boss
+      const queue = getQueue();
+      const jobId = await queue.publish('process-webhook', webhook, {
+        priority: 10,
+        retryLimit: 2,
+        retryDelay: 5,
+      });
+
+      logger.info('Task enqueued successfully', {
+        webhook_id: webhook.id,
+        job_id: jobId,
+      });
+
       res.status(202).json({
         success: true,
         message: 'Webhook accepted for processing',
         webhook_id: webhook.id,
+        job_id: jobId,
       });
     } catch (error) {
       logger.error('Failed to ingest webhook', {

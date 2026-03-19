@@ -1,7 +1,7 @@
 import 'dotenv/config';
 import express, { type Express, type Request, type Response } from 'express';
-import PgBoss from 'pg-boss';
 import { config } from './config/env.js';
+import { startQueue, stopQueue, healthCheckQueue, getQueue } from './config/queue.js';
 import { logger } from './shared/logger.js';
 import { setupWorkers } from './worker/taskHandler.js';
 import { setupRoutes } from './api/routes.js';
@@ -12,32 +12,18 @@ const app: Express = express();
 app.use(express.json());
 
 // Health check endpoint
-app.get('/health', (_req: Request, res: Response): void => {
-  res.status(200).json({
-    status: 'healthy',
+app.get('/health', async (_req: Request, res: Response): Promise<void> => {
+  const queueHealthy = await healthCheckQueue();
+
+  res.status(queueHealthy ? 200 : 503).json({
+    status: queueHealthy ? 'healthy' : 'degraded',
+    queue: queueHealthy ? 'connected' : 'disconnected',
     timestamp: new Date().toISOString(),
   });
 });
 
 // API Routes
 setupRoutes(app);
-
-function serializeError(error: unknown): Record<string, unknown> {
-  if (error instanceof Error) {
-    const errorWithOptionalCause = error as Error & { cause?: unknown };
-
-    return {
-      name: error.name,
-      message: error.message,
-      stack: error.stack,
-      cause: errorWithOptionalCause.cause,
-    };
-  }
-
-  return {
-    value: error,
-  };
-}
 
 async function main(): Promise<void> {
   try {
@@ -46,26 +32,37 @@ async function main(): Promise<void> {
       port: config.port,
     });
 
-    // Initialize PG-Boss
-    const pgBoss = new PgBoss(config.databaseUrl);
-
-    pgBoss.on('error', (error: Error): void => {
-      logger.error('PG-Boss error:', serializeError(error));
-    });
-
-    await pgBoss.start();
-    logger.info('PG-Boss initialized successfully');
+    // Initialize PG-Boss queue
+    await startQueue();
 
     // Setup workers
+    const pgBoss = getQueue();
     await setupWorkers(pgBoss);
     logger.info('Workers registered successfully');
 
     // Start Express server
     app.listen(config.port, (): void => {
-      logger.info(`Server listening on port ${config.port}`);
+      logger.info(`🚀 Server listening on port ${config.port}`);
+    });
+
+    // Graceful shutdown handlers
+    process.on('SIGTERM', async () => {
+      logger.info('SIGTERM received, shutting down gracefully...');
+      await stopQueue();
+      process.exit(0);
+    });
+
+    process.on('SIGINT', async () => {
+      logger.info('SIGINT received, shutting down gracefully...');
+      await stopQueue();
+      process.exit(0);
     });
   } catch (error) {
-    logger.error('Failed to start application:', serializeError(error));
+    logger.error('Failed to start application:', {
+      name: error instanceof Error ? error.name : 'Unknown',
+      message: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+    });
     process.exit(1);
   }
 }

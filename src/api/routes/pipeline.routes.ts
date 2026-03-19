@@ -1,6 +1,5 @@
 import { type Express, type Request, type Response } from 'express';
 import { z } from 'zod';
-import { ActionType } from '@prisma/client';
 import {
   createPipeline,
   getAllPipelines,
@@ -44,7 +43,7 @@ export function setupPipelineRoutes(app: Express): void {
       const pipeline = await createPipeline({
         name: data.name,
         description: data.description,
-        actionType: data.actionType as ActionType,
+        actionType: data.actionType,
         config: data.config as any,
       });
 
@@ -167,7 +166,7 @@ export function setupPipelineRoutes(app: Express): void {
       const pipeline = await updatePipeline(id, {
         name: data.name,
         description: data.description,
-        actionType: data.actionType as ActionType | undefined,
+        actionType: data.actionType,
         config: data.config as any,
       });
 

@@ -8,7 +8,8 @@ COPY package*.json ./
 COPY tsconfig.json ./
 
 # Install dependencies (including devDependencies for build)
-RUN npm ci
+# Install tsx and typescript explicitly to ensure they're available
+RUN npm install && npm install --save-dev tsx typescript
 
 # Copy prisma schema
 COPY prisma ./prisma/
@@ -19,8 +20,11 @@ RUN npx prisma generate
 # Copy source code
 COPY src ./src
 
-# Build TypeScript
+# Build TypeScript to dist folder
 RUN npm run build
+
+# Verify dist folder was created
+RUN test -d dist || (echo "Build failed: dist folder not created" && exit 1)
 
 # Production stage
 FROM node:20-alpine
@@ -33,8 +37,14 @@ RUN apk add --no-cache dumb-init
 # Copy package files
 COPY package*.json ./
 
+# Copy prisma schema (needed for Prisma Client generation)
+COPY prisma ./prisma/
+
 # Install only production dependencies
-RUN npm ci --only=production
+RUN npm install --production
+
+# Generate Prisma Client in production (needed for runtime)
+RUN npx prisma generate
 
 # Copy compiled code from builder
 COPY --from=builder /app/dist ./dist
@@ -50,4 +60,5 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
 # Use dumb-init to handle signals properly
 ENTRYPOINT ["dumb-init", "--"]
 
+# Run compiled JavaScript directly (NOT tsx or npm run dev)
 CMD ["node", "dist/index.js"]

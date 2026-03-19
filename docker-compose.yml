@@ -32,10 +32,7 @@ services:
       WORKER_CONCURRENCY: 5
     ports:
       - "3000:3000"
-    volumes:
-      - .:/app
-      - /app/node_modules
-    command: npm run dev
+    # Run the compiled Node.js application (NO npm run dev which requires tsx)
 
 volumes:
   postgres_data:

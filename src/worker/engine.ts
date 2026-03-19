@@ -1,5 +1,5 @@
 import PgBoss from 'pg-boss';
-import { PrismaClient, ActionType } from '@prisma/client';
+import { PrismaClient } from '@prisma/client';
 import { logger } from '../shared/logger.js';
 import { jsonToXml, sanitizeObjectForXml } from '../shared/transformers.js';
 import { config } from '../config/env.js';
@@ -138,23 +138,23 @@ async function handleAiSummarizerAction(
  * Dispatches to appropriate handler
  */
 async function executeAction(
-  actionType: ActionType,
+  actionType: string,
   payload: Record<string, unknown>
 ): Promise<string> {
   switch (actionType) {
-    case ActionType.CONVERTER:
+    case 'CONVERTER':
       return await handleConverterAction(payload);
 
-    case ActionType.EMAIL:
+    case 'EMAIL':
       return await handleEmailAction(payload);
 
-    case ActionType.DISCORD:
+    case 'DISCORD':
       return await handleDiscordAction(payload);
 
-    case ActionType.PDF:
+    case 'PDF':
       return await handlePdfAction(payload);
 
-    case ActionType.AI_SUMMARIZER:
+    case 'AI_SUMMARIZER':
       return await handleAiSummarizerAction(payload);
 
     default:

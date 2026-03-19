@@ -1,4 +1,4 @@
-import { PrismaClient, ActionType, Prisma } from '@prisma/client';
+import { PrismaClient, Prisma } from '@prisma/client';
 import { logger } from '../../shared/logger.js';
 
 const prisma = new PrismaClient();
@@ -6,7 +6,7 @@ const prisma = new PrismaClient();
 export interface CreatePipelineDTO {
   name: string;
   description?: string;
-  actionType: ActionType;
+  actionType: string;
   config?: Prisma.JsonValue;
 }
 
@@ -25,7 +25,7 @@ export async function createPipeline(
       data: {
         name: data.name,
         description: data.description,
-        actionType: data.actionType,
+        actionType: data.actionType as any,
         config: data.config || undefined,
       },
     });

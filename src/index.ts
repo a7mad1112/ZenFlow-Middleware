@@ -6,6 +6,7 @@ import { logger } from './shared/logger.js';
 import { setupWorkers } from './worker/taskHandler.js';
 import { setupRoutes } from './api/routes.js';
 import { setupPipelineRoutes } from './api/routes/pipeline.routes.js';
+import { setupWebhookRoutes } from './api/routes/webhook.routes.js';
 
 const app: Express = express();
 
@@ -26,6 +27,7 @@ app.get('/health', async (_req: Request, res: Response): Promise<void> => {
 // API Routes
 setupRoutes(app);
 setupPipelineRoutes(app);
+setupWebhookRoutes(app);
 
 async function main(): Promise<void> {
   try {

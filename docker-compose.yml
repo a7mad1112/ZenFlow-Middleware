@@ -17,7 +17,9 @@ services:
       retries: 5
 
   app:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile
     container_name: webhook_app
     depends_on:
       postgres:

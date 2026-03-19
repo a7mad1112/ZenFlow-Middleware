@@ -7,8 +7,14 @@ WORKDIR /app
 COPY package*.json ./
 COPY tsconfig.json ./
 
-# Install dependencies
-RUN npm ci --only=production && npm install typescript ts-node
+# Install dependencies (including devDependencies for build)
+RUN npm ci
+
+# Copy prisma schema
+COPY prisma ./prisma/
+
+# Generate Prisma Client
+RUN npx prisma generate
 
 # Copy source code
 COPY src ./src

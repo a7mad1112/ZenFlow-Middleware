@@ -5,6 +5,7 @@ import { startQueue, stopQueue, healthCheckQueue, getQueue } from './config/queu
 import { logger } from './shared/logger.js';
 import { setupWorkers } from './worker/taskHandler.js';
 import { setupRoutes } from './api/routes.js';
+import { setupPipelineRoutes } from './api/routes/pipeline.routes.js';
 
 const app: Express = express();
 
@@ -24,6 +25,7 @@ app.get('/health', async (_req: Request, res: Response): Promise<void> => {
 
 // API Routes
 setupRoutes(app);
+setupPipelineRoutes(app);
 
 async function main(): Promise<void> {
   try {

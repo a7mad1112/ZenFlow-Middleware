@@ -10,18 +10,42 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model Pipeline {
-  id        String   @id @default(cuid())
-  name      String   @unique
-  description String?
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+enum ActionType {
+  CONVERTER
+  EMAIL
+  DISCORD
+  PDF
+  AI_SUMMARIZER
+}
 
-  webhooks Webhook[]
-  tasks    Task[]
+model Pipeline {
+  id          String      @id @default(cuid())
+  name        String      @unique
+  description String?
+  actionType  ActionType  @default(CONVERTER)
+  config      Json?
+  isActive    Boolean     @default(true)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  subscribers Subscriber[]
+  webhooks    Webhook[]
+  tasks       Task[]
 
   @@map("pipelines")
+}
+
+model Subscriber {
+  id         String   @id @default(cuid())
+  pipelineId String
+  pipeline   Pipeline @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
+  targetUrl  String
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([pipelineId])
+  @@map("subscribers")
 }
 
 model Webhook {

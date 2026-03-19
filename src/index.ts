@@ -3,7 +3,7 @@ import express, { type Express, type Request, type Response } from 'express';
 import { config } from './config/env.js';
 import { startQueue, stopQueue, healthCheckQueue, getQueue } from './config/queue.js';
 import { logger } from './shared/logger.js';
-import { setupWorkers } from './worker/taskHandler.js';
+import { startWorkerEngine } from './worker/engine.js';
 import { setupRoutes } from './api/routes.js';
 import { setupPipelineRoutes } from './api/routes/pipeline.routes.js';
 import { setupWebhookRoutes } from './api/routes/webhook.routes.js';
@@ -39,10 +39,10 @@ async function main(): Promise<void> {
     // Initialize PG-Boss queue
     await startQueue();
 
-    // Setup workers
+    // Setup worker engine
     const pgBoss = getQueue();
-    await setupWorkers(pgBoss);
-    logger.info('Workers registered successfully');
+    await startWorkerEngine(pgBoss);
+    logger.info('Worker engine started successfully');
 
     // Start Express server
     app.listen(config.port, (): void => {

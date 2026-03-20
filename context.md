@@ -144,6 +144,19 @@
   - explicit red alert card when `log.status === 'failed'` and `log.error` exists.
 - Added safe compatibility normalization so older records still render, while new structured controller fields drive primary UI state.
 
+### 19. Pipeline Management UI (Feature 1 & 2)
+- Added dashboard pipeline service `dashboard/src/services/pipelines.service.ts` with CRUD and action toggle methods:
+  - `getPipelines`, `createPipeline`, `updatePipeline`, `deletePipeline`, `toggleAction`.
+- Implemented action toggles for all 5 actions in `dashboard/src/pages/pipelines-page.tsx`:
+  - XML (`CONVERTER`), Discord, Email, PDF, AI.
+  - Toggle updates are persisted through backend pipeline update endpoint and reflected immediately via refresh.
+- Implemented Pipeline list UI with dark-mode cards showing:
+  - Name, ID, active status, description, updated timestamp.
+- Implemented create pipeline modal form using Formik + Yup with fields:
+  - `name`, `description`, `actionType`.
+- Added pipeline delete action in UI and refresh-based synchronization after create/update/delete/toggle operations.
+- Added backend `PATCH /api/pipelines/:id` route alias (same behavior as PUT update) to support dashboard toggle integration semantics.
+
 ## Future Plan (Roadmap)
 
 ### Monitoring and Operations

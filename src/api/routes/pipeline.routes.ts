@@ -218,6 +218,62 @@ export function setupPipelineRoutes(app: Express): void {
   });
 
   /**
+   * PATCH /api/pipelines/:id
+   * Partial update for dashboard toggles/config
+   */
+  app.patch('/api/pipelines/:id', async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { id } = req.params;
+      const data: UpdatePipelineRequest = updatePipelineSchema.parse(req.body);
+
+      const pipeline = await updatePipeline(id, {
+        name: data.name,
+        description: data.description,
+        actionType: data.actionType,
+        config: data.config as any,
+      });
+
+      logger.info('PATCH /api/pipelines/:id - Pipeline updated', {
+        pipeline_id: id,
+      });
+
+      res.status(200).json({
+        success: true,
+        message: 'Pipeline updated successfully',
+        data: pipeline,
+      });
+    } catch (error) {
+      logger.error('PATCH /api/pipelines/:id failed', {
+        error: error instanceof Error ? error.message : String(error),
+        pipeline_id: req.params.id,
+      });
+
+      if (error instanceof z.ZodError) {
+        res.status(400).json({
+          success: false,
+          message: 'Validation error',
+          errors: error.errors,
+        });
+      } else if (error instanceof Error && error.message.includes('not found')) {
+        res.status(404).json({
+          success: false,
+          message: 'Pipeline not found',
+        });
+      } else if (error instanceof Error && error.message.includes('Unique constraint failed')) {
+        res.status(409).json({
+          success: false,
+          message: 'Pipeline with this name already exists',
+        });
+      } else {
+        res.status(500).json({
+          success: false,
+          message: 'Internal server error',
+        });
+      }
+    }
+  });
+
+  /**
    * DELETE /api/pipelines/:id
    * Delete a pipeline
    */

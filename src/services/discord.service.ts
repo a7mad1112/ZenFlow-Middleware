@@ -11,17 +11,23 @@ function resolveDiscordWebhookUrl(): string {
   return url;
 }
 
-function buildDiscordPayload(xmlContent: string): { content: string } {
+function buildDiscordPayload(xmlContent: string, aiSummary: string): { content: string } {
   const formattedXml = xmlContent.trim();
+  const formattedSummary = aiSummary.trim();
 
   return {
-    content: `***New Pipeline Result***\n\`\`\`xml\n${formattedXml}\n\`\`\``,
+    content:
+      `***AI Insight***\n${formattedSummary}\n\n` +
+      `***New Pipeline Result***\n\`\`\`xml\n${formattedXml}\n\`\`\``,
   };
 }
 
-export async function sendXmlToDiscord(xmlContent: string): Promise<void> {
+export async function sendXmlToDiscord(
+  xmlContent: string,
+  aiSummary: string
+): Promise<void> {
   const url = resolveDiscordWebhookUrl();
-  const payload = buildDiscordPayload(xmlContent);
+  const payload = buildDiscordPayload(xmlContent, aiSummary);
 
   console.log('Discord URL:', url);
 

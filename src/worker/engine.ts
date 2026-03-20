@@ -6,6 +6,7 @@ import { config } from '../config/env.js';
 import { sendXmlToDiscord } from '../services/discord.service.js';
 import { emailService } from '../services/email.service.js';
 import { generateInvoice } from '../services/pdf.service.js';
+import { aiService } from '../services/ai.service.js';
 
 const prisma = new PrismaClient();
 
@@ -214,6 +215,7 @@ async function processTask(taskData: TaskPayload): Promise<void> {
   const { pipelineId, logId, payload, webhookId } = taskData;
   const prismaAny = prisma as any;
   let result: string | null = null;
+  let aiSummary = 'New Order Received';
 
   try {
     logger.info('Processing task from queue', {
@@ -259,6 +261,21 @@ async function processTask(taskData: TaskPayload): Promise<void> {
       actionType: pipeline.actionType,
     });
 
+    try {
+      aiSummary = await aiService.summarizeOrder(payload);
+      logger.info('AI summary generated successfully', {
+        taskId: logId,
+        pipelineId: pipelineId,
+      });
+    } catch (aiError) {
+      aiSummary = 'New Order Received';
+      logger.warn('AI summary generation failed; using fallback summary', {
+        taskId: logId,
+        pipelineId: pipelineId,
+        error: aiError instanceof Error ? aiError.message : String(aiError),
+      });
+    }
+
     // Execute the action
     result = await executeAction(pipeline.actionType, payload);
 
@@ -293,7 +310,10 @@ async function processTask(taskData: TaskPayload): Promise<void> {
             to: customerEmail,
           });
 
-          await emailService.sendOrderConfirmation(customerEmail, payload, pdfBuffer);
+          await emailService.sendOrderConfirmation(customerEmail, payload, {
+            attachment: pdfBuffer,
+            aiSummary,
+          });
         } catch (emailError) {
           logger.error('Order confirmation email failed', {
             taskId: logId,
@@ -328,7 +348,7 @@ async function processTask(taskData: TaskPayload): Promise<void> {
           pipelineId: pipelineId,
         });
 
-        await sendXmlToDiscord(result);
+        await sendXmlToDiscord(result, aiSummary);
 
         logger.info('Converter result forwarded to Discord successfully', {
           taskId: logId,

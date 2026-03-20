@@ -63,6 +63,11 @@ function buildOrderConfirmationTemplate(payload: any): string {
   `;
 }
 
+interface SendOrderConfirmationOptions {
+  attachment?: Buffer;
+  aiSummary?: string;
+}
+
 class EmailService {
   private transporterInstance: Transporter | null = null;
 
@@ -94,7 +99,7 @@ class EmailService {
   async sendOrderConfirmation(
     to: string,
     payload: any,
-    attachment?: Buffer
+    options?: SendOrderConfirmationOptions
   ): Promise<void> {
     const transporter = this.getTransporter();
     const from = config.emailFrom || config.smtpUser;
@@ -105,17 +110,25 @@ class EmailService {
 
     const subject = `Order Confirmation${payload?.orderId ? ` #${payload.orderId}` : ''}`;
     const html = buildOrderConfirmationTemplate(payload);
+    const aiSummaryHtml = options?.aiSummary
+      ? `<p style="margin-top: 0; color: #111827;"><strong>AI Insight:</strong> ${escapeHtml(options.aiSummary)}</p>`
+      : '';
 
     await transporter.sendMail({
       from,
       to,
       subject,
-      html,
-      attachments: attachment
+      html: `
+        <div>
+          ${aiSummaryHtml}
+          ${html}
+        </div>
+      `,
+      attachments: options?.attachment
         ? [
             {
               filename: 'invoice.pdf',
-              content: attachment,
+              content: options.attachment,
             },
           ]
         : undefined,

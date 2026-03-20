@@ -42,6 +42,7 @@ const envSchema = z.object({
   smtpUser: z.string().optional(),
   smtpPass: z.string().optional(),
   emailFrom: z.string().optional(),
+  geminiApiKey: z.string().optional(),
 });
 
 export type Config = z.infer<typeof envSchema>;
@@ -63,6 +64,7 @@ function loadConfig(): Config {
     smtpUser: process.env.SMTP_USER,
     smtpPass: process.env.SMTP_PASS,
     emailFrom: process.env.EMAIL_FROM,
+    geminiApiKey: process.env.GEMINI_API_KEY,
   };
 
   return envSchema.parse(env);

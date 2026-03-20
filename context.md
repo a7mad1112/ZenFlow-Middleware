@@ -47,11 +47,15 @@
 - PDF-to-Email integration is complete: generated invoice is attached to customer confirmation emails.
 - If PDF generation fails, system logs warning and sends email without attachment.
 
-## Future Plan (Roadmap)
+### 8. Action 5: AI Summarizer (Gemini 2.5 Flash)
+- Gemini service layer is implemented with API-key based initialization.
+- Worker generates an AI order summary at the start of pipeline processing.
+- AI output is propagated to both notification channels:
+  - Discord message starts with AI insight.
+  - Email body starts with AI insight.
+- On AI errors (rate limits or API failure), worker falls back to `New Order Received` without stopping pipeline execution.
 
-### Action 5: AI Summarizer (Gemini API)
-- Add AI summarization action for payload/result insights.
-- Store summary output and confidence/metadata in task result model.
+## Future Plan (Roadmap)
 
 ### Monitoring and Operations
 - Build dashboard/API views for operational tracking.

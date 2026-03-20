@@ -1,0 +1,20 @@
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html,
+  body,
+  #root {
+    @apply min-h-screen;
+  }
+
+  body {
+    @apply bg-zinc-950 font-sans text-zinc-100 antialiased;
+    background-image:
+      radial-gradient(circle at 18% 20%, rgba(251, 191, 36, 0.12), transparent 40%),
+      radial-gradient(circle at 88% 0%, rgba(20, 184, 166, 0.12), transparent 38%);
+  }
+}

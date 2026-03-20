@@ -66,6 +66,14 @@
 - Implemented `GET /api/logs/:id` returning full task detail including payload and action outputs (XML, AI summary, PDF/email/discord execution metadata when available).
 - Worker task result payload is now persisted as structured execution details to support dashboard drill-down views.
 
+### 11. Dashboard Frontend Foundation (Initialized)
+- The `dashboard/` frontend is now TypeScript-based (React + Vite) with initial routing and a dark-mode-first shell.
+- TailwindCSS, PostCSS, and Autoprefixer are configured with class-based dark mode.
+- Core frontend dependencies were added: Axios, React Router, Lucide icons, clsx, and tailwind-merge.
+- Frontend structure was scaffolded for API layer, layout components, UI primitives, and pages.
+- Implemented Axios client at `dashboard/src/api/client.ts` using `import.meta.env.VITE_API_BASE_URL`.
+- Added initial dashboard UI with sidebar + navbar and a Stats Overview page that fetches data from `GET /api/stats`.
+
 ## Future Plan (Roadmap)
 
 ### Monitoring and Operations

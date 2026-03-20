@@ -1,46 +1,19 @@
-import PgBoss from 'pg-boss';
+import { initBoss, getBoss as getBossInstance, stopBoss } from '../lib/boss.js';
 import { logger } from '../shared/logger.js';
-import { config } from './env.js';
-
-let pgBoss: PgBoss | null = null;
 
 /**
- * Initialize and start the PG-Boss queue instance
- * Creates internal PG-Boss tables on first run
+ * Start the shared PG-Boss queue instance
+ * This wraps the centralized boss initialization
  */
-export async function startQueue(): Promise<PgBoss> {
-  if (pgBoss) {
-    logger.info('PG-Boss instance already running');
-    return pgBoss;
-  }
-
+export async function startQueue() {
   try {
-    pgBoss = new PgBoss({
-      connectionString: config.databaseUrl,
-      max: config.pgBossPoolSize,
-      schema: 'pgboss',
-      archiveCompletedAfterSeconds: 86400, // Keep completed jobs for 24 hours
-    });
-
-    // Attach error handler
-    pgBoss.on('error', (error: Error): void => {
-      logger.error('PG-Boss internal error:', {
-        name: error.name,
-        message: error.message,
-        stack: error.stack,
-      });
-    });
-
-    // Start the queue
-    await pgBoss.start();
-
+    const boss = await initBoss();
+    await boss.createQueue('task-queue');
     logger.info('✅ PG-Boss queue started successfully', {
       schema: 'pgboss',
-      poolSize: config.pgBossPoolSize,
-      database: config.databaseUrl.split('@')[1] || 'webhook_processor',
+      queueName: 'task-queue',
     });
-
-    return pgBoss;
+    return boss;
   } catch (error) {
     logger.error('❌ Failed to initialize PG-Boss:', {
       name: error instanceof Error ? error.name : 'Unknown',
@@ -53,28 +26,26 @@ export async function startQueue(): Promise<PgBoss> {
 
 /**
  * Get the PG-Boss instance
- * Throws if queue hasn't been initialized
+ * Uses the centralized instance from lib/boss
  */
-export function getQueue(): PgBoss {
-  if (!pgBoss) {
-    throw new Error('PG-Boss queue not initialized. Call startQueue() first.');
+export function getQueue() {
+  try {
+    return getBossInstance();
+  } catch (error) {
+    logger.error('PG-Boss not initialized', {
+      message: error instanceof Error ? error.message : String(error),
+    });
+    throw error;
   }
-  return pgBoss;
 }
 
 /**
  * Stop the PG-Boss queue gracefully
  */
 export async function stopQueue(): Promise<void> {
-  if (!pgBoss) {
-    logger.info('PG-Boss not running, nothing to stop');
-    return;
-  }
-
   try {
-    await pgBoss.stop();
+    await stopBoss();
     logger.info('✅ PG-Boss stopped gracefully');
-    pgBoss = null;
   } catch (error) {
     logger.error('Failed to stop PG-Boss:', {
       message: error instanceof Error ? error.message : String(error),
@@ -86,13 +57,10 @@ export async function stopQueue(): Promise<void> {
  * Verify queue connectivity (health check)
  */
 export async function healthCheckQueue(): Promise<boolean> {
-  if (!pgBoss) {
-    return false;
-  }
-
   try {
+    const boss = getBossInstance();
     // Send a test job to verify connectivity
-    await pgBoss.publish('__health_check__', { test: true }, { priority: 1 });
+    await boss.publish('__health_check__', { test: true }, { priority: 1 });
     return true;
   } catch (error) {
     logger.error('Queue health check failed:', {

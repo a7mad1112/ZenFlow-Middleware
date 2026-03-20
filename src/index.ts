@@ -1,7 +1,7 @@
 import 'dotenv/config';
 import express, { type Express, type Request, type Response } from 'express';
 import { config } from './config/env.js';
-import { startQueue, stopQueue, healthCheckQueue, getQueue } from './config/queue.js';
+import { startQueue, stopQueue, healthCheckQueue } from './config/queue.js';
 import { logger } from './shared/logger.js';
 import { startWorkerEngine } from './worker/engine.js';
 import { setupRoutes } from './api/routes.js';
@@ -36,12 +36,12 @@ async function main(): Promise<void> {
       port: config.port,
     });
 
-    // Initialize PG-Boss queue
-    await startQueue();
+    // Initialize and start PG-Boss queue before workers/server
+    const boss = await startQueue();
+    console.log('🚀 PG-Boss is ready');
 
-    // Setup worker engine
-    const pgBoss = getQueue();
-    await startWorkerEngine(pgBoss);
+    // Start worker engine before accepting HTTP traffic
+    await startWorkerEngine(boss);
     logger.info('Worker engine started successfully');
 
     // Start Express server

@@ -1,6 +1,6 @@
 import { PrismaClient, Prisma } from '@prisma/client';
 import { logger } from '../../shared/logger.js';
-import { getQueue } from '../../config/queue.js';
+import { getBoss } from '../../lib/boss.js';
 
 const prisma = new PrismaClient();
 
@@ -20,47 +20,46 @@ export async function ingestWebhook(
 ): Promise<any> {
   try {
     let webhookId: string | undefined;
-    let pipelineId: string;
+    let pipelineId: string | undefined;
 
-    // First, try to find as a webhook
+    // 1) Try Webhook table first
     const webhook = await prisma.webhook.findUnique({
       where: { id },
-      include: { pipeline: true },
     });
 
     if (webhook) {
-      // Found as webhook
-      webhookId = webhook.id;
-      pipelineId = webhook.pipelineId;
-
       if (!webhook.isActive) {
-        logger.warn('Webhook is inactive', { webhookId });
-        throw new Error(`Webhook ${webhookId} is inactive`);
+        logger.warn('Webhook is inactive', { webhookId: webhook.id });
+        throw new Error(`Webhook ${webhook.id} is inactive`);
       }
 
-      logger.info('Webhook found', { webhookId, pipelineId });
-    } else {
-      // Not found as webhook, try to find as pipeline
+      webhookId = webhook.id;
+      pipelineId = webhook.pipelineId;
+      logger.info('Webhook found for ingestion', { webhookId, pipelineId });
+    }
+
+    // 2) If not found in Webhook table, immediately try Pipeline table
+    if (!pipelineId) {
       const pipeline = await prisma.pipeline.findUnique({
         where: { id },
       });
 
       if (!pipeline) {
-        logger.warn('Webhook or Pipeline not found', { id });
-        throw new Error(`Resource ${id} not found in Webhook or Pipeline`);
+        logger.warn('Resource not found in both Webhook and Pipeline tables', { id });
+        throw new Error(`Resource ${id} not found`);
       }
 
       if (!pipeline.isActive) {
-        logger.warn('Pipeline is inactive', { pipelineId: id });
-        throw new Error(`Pipeline ${id} is inactive`);
+        logger.warn('Pipeline is inactive', { pipelineId: pipeline.id });
+        throw new Error(`Pipeline ${pipeline.id} is inactive`);
       }
 
       pipelineId = pipeline.id;
-      logger.info('Pipeline found (ingesting directly)', { pipelineId });
+      logger.info('Pipeline found for direct ingestion', { pipelineId });
     }
 
     // Create a task record with PENDING status
-    const task = await prisma.task.create({
+    const result = await prisma.task.create({
       data: {
         pipelineId: pipelineId,
         webhookId: webhookId || undefined,
@@ -72,30 +71,76 @@ export async function ingestWebhook(
     });
 
     logger.info('Task created', {
-      taskId: task.id,
+      taskId: result.id,
       webhookId: webhookId,
       pipelineId: pipelineId,
     });
 
     // Queue the job using pg-boss
-    const queue = getQueue();
-    const jobId = await queue.send(
-      'task-queue',
-      {
-        pipelineId: pipelineId,
-        webhookId: webhookId,
-        payload: data.payload,
-        logId: task.id,
+    const boss = getBoss();
+    if (!boss) {
+      throw new Error('Boss not initialized');
+    }
+
+    let jobId: string | null;
+    try {
+      console.log('🔵 Attempting to send job to boss...', {
+        taskId: result.id,
+        queueName: 'task-queue',
+      });
+      
+      jobId = await boss.send(
+        'task-queue',
+        {
+          logId: result.id,
+          pipelineId: result.pipelineId,
+          payload: data.payload,
+        },
+        {
+          priority: 5,
+          retryLimit: 2,
+          retryDelay: 5,
+        }
+      );
+      
+      console.log('✅ boss.send() returned:', {
+        taskId: result.id,
+        jobId: jobId,
+        type: typeof jobId,
+      });
+    } catch (error) {
+      console.error('❌ Exception during boss.send():', {
+        taskId: result.id,
+        errorName: error instanceof Error ? error.name : 'Unknown',
+        errorMessage: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+      });
+      logger.error('PG-Boss send error:', {
+        taskId: result.id,
+        message: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+      });
+      throw error;
+    }
+
+    if (!jobId) {
+      throw new Error(`Failed to enqueue job for task ${result.id}`);
+    }
+
+    // Save the jobId back to the log/task record for tracking
+    await prisma.task.update({
+      where: { id: result.id },
+      data: {
+        result: {
+          jobId,
+          queueName: 'task-queue',
+          queuedAt: new Date().toISOString(),
+        } as any,
       },
-      {
-        priority: 5,
-        retryLimit: 2,
-        retryDelay: 5,
-      }
-    );
+    });
 
     logger.info('Job queued successfully in pg-boss', {
-      taskId: task.id,
+      taskId: result.id,
       jobId: jobId,
       webhookId: webhookId,
       pipelineId: pipelineId,
@@ -103,10 +148,10 @@ export async function ingestWebhook(
     });
 
     return {
-      id: task.id,
-      status: task.status,
+      id: result.id,
+      status: result.status,
       jobId: jobId,
-      createdAt: task.createdAt,
+      createdAt: result.createdAt,
     };
   } catch (error) {
     logger.error('Failed to ingest webhook', {
@@ -120,16 +165,12 @@ export async function ingestWebhook(
 
 /**
  * Create a webhook for a pipeline
- * @param pipelineId - The pipeline ID
- * @param data - Webhook data (eventType, url)
- * @returns Created webhook
  */
 export async function createWebhook(
   pipelineId: string,
   data: { eventType: string; url: string }
 ): Promise<any> {
   try {
-    // Verify pipeline exists
     const pipeline = await prisma.pipeline.findUnique({
       where: { id: pipelineId },
     });
@@ -139,10 +180,9 @@ export async function createWebhook(
       throw new Error(`Pipeline ${pipelineId} not found`);
     }
 
-    // Create webhook
     const webhook = await prisma.webhook.create({
       data: {
-        pipelineId: pipelineId,
+        pipelineId,
         eventType: data.eventType,
         url: data.url,
       },
@@ -150,14 +190,14 @@ export async function createWebhook(
 
     logger.info('Webhook created successfully', {
       webhookId: webhook.id,
-      pipelineId: pipelineId,
-      eventType: data.eventType,
+      pipelineId,
+      eventType: webhook.eventType,
     });
 
     return webhook;
   } catch (error) {
     logger.error('Failed to create webhook', {
-      pipelineId: pipelineId,
+      pipelineId,
       error: error instanceof Error ? error.message : String(error),
     });
     throw error;
@@ -166,25 +206,16 @@ export async function createWebhook(
 
 /**
  * Get all webhooks for a pipeline
- * @param pipelineId - The pipeline ID
- * @returns List of webhooks
  */
 export async function getWebhooksByPipelineId(pipelineId: string): Promise<any[]> {
   try {
-    const webhooks = await prisma.webhook.findMany({
+    return await prisma.webhook.findMany({
       where: { pipelineId },
       orderBy: { createdAt: 'desc' },
     });
-
-    logger.debug('Webhooks retrieved', {
-      pipelineId: pipelineId,
-      count: webhooks.length,
-    });
-
-    return webhooks;
   } catch (error) {
     logger.error('Failed to retrieve webhooks', {
-      pipelineId: pipelineId,
+      pipelineId,
       error: error instanceof Error ? error.message : String(error),
     });
     throw error;

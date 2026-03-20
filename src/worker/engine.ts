@@ -168,6 +168,7 @@ async function executeAction(
  */
 async function processTask(taskData: TaskPayload): Promise<void> {
   const { pipelineId, logId, payload, webhookId } = taskData;
+  const prismaAny = prisma as any;
 
   try {
     logger.info('Processing task from queue', {
@@ -176,15 +177,26 @@ async function processTask(taskData: TaskPayload): Promise<void> {
       webhookId: webhookId,
     });
 
-    // Update task status to PROCESSING
-    await prisma.task.update({
-      where: { id: logId },
-      data: {
-        status: 'processing',
-        attempts: { increment: 1 },
-        updatedAt: new Date(),
-      },
-    });
+    // Update log/task status to PROCESSING
+    if (prismaAny.webhookLog?.update) {
+      await prismaAny.webhookLog.update({
+        where: { id: logId },
+        data: {
+          status: 'PROCESSING',
+          attempts: { increment: 1 },
+          updatedAt: new Date(),
+        },
+      });
+    } else {
+      await prisma.task.update({
+        where: { id: logId },
+        data: {
+          status: 'processing',
+          attempts: { increment: 1 },
+          updatedAt: new Date(),
+        },
+      });
+    }
 
     logger.debug('Task marked as PROCESSING', { taskId: logId });
 
@@ -211,16 +223,28 @@ async function processTask(taskData: TaskPayload): Promise<void> {
       resultLength: result.length,
     });
 
-    // Update task status to COMPLETED with result
-    await prisma.task.update({
-      where: { id: logId },
-      data: {
-        status: 'completed',
-        result: result as any,
-        completedAt: new Date(),
-        updatedAt: new Date(),
-      },
-    });
+    // Update log/task status to PROCESSED with result
+    if (prismaAny.webhookLog?.update) {
+      await prismaAny.webhookLog.update({
+        where: { id: logId },
+        data: {
+          status: 'PROCESSED',
+          result: result,
+          processedAt: new Date(),
+          updatedAt: new Date(),
+        },
+      });
+    } else {
+      await prisma.task.update({
+        where: { id: logId },
+        data: {
+          status: 'completed',
+          result: result as any,
+          completedAt: new Date(),
+          updatedAt: new Date(),
+        },
+      });
+    }
 
     logger.info('Task completed successfully', {
       taskId: logId,
@@ -235,16 +259,27 @@ async function processTask(taskData: TaskPayload): Promise<void> {
       stack: error instanceof Error ? error.stack : undefined,
     });
 
-    // Update task status to FAILED
+    // Update log/task status to FAILED
     try {
-      await prisma.task.update({
-        where: { id: logId },
-        data: {
-          status: 'failed',
-          error: error instanceof Error ? error.message : String(error),
-          updatedAt: new Date(),
-        },
-      });
+      if (prismaAny.webhookLog?.update) {
+        await prismaAny.webhookLog.update({
+          where: { id: logId },
+          data: {
+            status: 'FAILED',
+            error: error instanceof Error ? error.message : String(error),
+            updatedAt: new Date(),
+          },
+        });
+      } else {
+        await prisma.task.update({
+          where: { id: logId },
+          data: {
+            status: 'failed',
+            error: error instanceof Error ? error.message : String(error),
+            updatedAt: new Date(),
+          },
+        });
+      }
 
       logger.info('Task marked as FAILED', {
         taskId: logId,
@@ -276,15 +311,22 @@ export async function startWorkerEngine(pgBoss: PgBoss): Promise<void> {
       concurrency: config.workerConcurrency,
     });
 
+    console.log('🔵 Starting worker subscriptions...');
+
     // Create worker instances
-    const workers = Array.from({ length: workerCount }, () =>
+    const workers = Array.from({ length: workerCount }, (_, idx) =>
       pgBoss.work<TaskPayload>(
         'task-queue',
         {
           batchSize: 1,
         },
         async (jobs) => {
+          console.log(`✅ Worker #${idx} subscription active and ready for jobs`);
+          
           for (const job of jobs) {
+            console.log('🚀 Worker #' + idx + ' picking up job:', job.id);
+            console.log('🚀 WORKER: Processing logId:', job.data.logId);
+
             try {
               logger.debug('Processing job from queue', {
                 jobId: job.id,
@@ -312,7 +354,10 @@ export async function startWorkerEngine(pgBoss: PgBoss): Promise<void> {
       )
     );
 
+    // Wait for all worker subscriptions to register
     await Promise.all(workers);
+    
+    console.log('✅ All worker subscriptions registered and active');
 
     logger.info(`✅ Worker engine started with ${workerCount} workers on task-queue`);
   } catch (error) {

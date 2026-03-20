@@ -152,6 +152,8 @@ export function LogsPage() {
         selectedLogId={selectedLogId}
         detail={detail}
         detailState={detailState}
+        onRefreshLogs={fetchLogs}
+        onRefreshDetail={fetchDetail}
         onClose={() => {
           setSelectedLogId(null);
           setDetail(null);

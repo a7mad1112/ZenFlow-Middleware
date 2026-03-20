@@ -157,6 +157,20 @@
 - Added pipeline delete action in UI and refresh-based synchronization after create/update/delete/toggle operations.
 - Added backend `PATCH /api/pipelines/:id` route alias (same behavior as PUT update) to support dashboard toggle integration semantics.
 
+### 20. Manual Retry and Error Recovery UX
+- Added backend endpoint `POST /api/tasks/:id/retry` in `src/api/routes/dashboard.routes.ts`.
+- Implemented retry logic in `src/api/controllers/webhook.controller.ts`:
+  - loads original task payload and metadata
+  - re-enqueues job in pg-boss `task-queue`
+  - resets task status to `pending` and clears task error/completed timestamp.
+- Added `retryTask(id)` API helper in `dashboard/src/services/logs.service.ts`.
+- Updated `dashboard/src/components/logs/LogDetailDrawer.tsx` with:
+  - prominent retry button for failed tasks
+  - loading spinner while retry is in progress
+  - success/error notification message after retry attempts
+  - copy task ID button for operations/debugging
+  - refresh hooks to reload log status/details after successful retry.
+
 ## Future Plan (Roadmap)
 
 ### Monitoring and Operations

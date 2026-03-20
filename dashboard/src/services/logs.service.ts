@@ -79,6 +79,12 @@ interface ApiEnvelope<T> {
   pagination?: LogsResponse['pagination'];
 }
 
+export interface RetryTaskResponse {
+  taskId: string;
+  jobId: string;
+  status: string;
+}
+
 function parseRiskFromText(value: unknown): RiskLevel | null {
   if (typeof value !== 'string') {
     return null;
@@ -261,4 +267,9 @@ export async function getLogs(params: LogsQueryParams = {}): Promise<LogsRespons
 export async function getLogById(id: string): Promise<LogDetail> {
   const response = await apiClient.get<ApiEnvelope<LogDetail>>(`/api/logs/${id}`);
   return normalizeLogDetail(response.data.data);
+}
+
+export async function retryTask(id: string): Promise<RetryTaskResponse> {
+  const response = await apiClient.post<ApiEnvelope<RetryTaskResponse>>(`/api/tasks/${id}/retry`);
+  return response.data.data;
 }

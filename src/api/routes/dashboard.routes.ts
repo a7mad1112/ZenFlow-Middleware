@@ -6,6 +6,7 @@ import {
   getDashboardStats,
   type RiskLevel,
 } from '../controllers/dashboard.controller.js';
+import { retryTask } from '../controllers/webhook.controller.js';
 import { logger } from '../../shared/logger.js';
 
 const logsQuerySchema = z.object({
@@ -97,6 +98,37 @@ export function setupDashboardRoutes(app: Express): void {
         id: req.params.id,
         error: error instanceof Error ? error.message : String(error),
       });
+
+      res.status(500).json({
+        success: false,
+        message: 'Internal server error',
+      });
+    }
+  });
+
+  app.post('/api/tasks/:id/retry', async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { id } = req.params;
+      const result = await retryTask(id);
+
+      res.status(200).json({
+        success: true,
+        message: 'Task re-enqueued successfully',
+        data: result,
+      });
+    } catch (error) {
+      logger.error('POST /api/tasks/:id/retry failed', {
+        id: req.params.id,
+        error: error instanceof Error ? error.message : String(error),
+      });
+
+      if (error instanceof Error && error.message.includes('not found')) {
+        res.status(404).json({
+          success: false,
+          message: 'Task not found',
+        });
+        return;
+      }
 
       res.status(500).json({
         success: false,

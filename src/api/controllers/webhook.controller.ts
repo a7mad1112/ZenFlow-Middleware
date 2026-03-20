@@ -263,6 +263,81 @@ export async function getTaskStatus(taskId: string): Promise<any> {
 }
 
 /**
+ * Manually retry a task by re-enqueuing its original payload
+ * @param taskId - The existing task ID
+ */
+export async function retryTask(taskId: string): Promise<{
+  taskId: string;
+  jobId: string;
+  status: string;
+}> {
+  try {
+    const task = await prisma.task.findUnique({
+      where: { id: taskId },
+    });
+
+    if (!task) {
+      logger.warn('Retry requested for missing task', { taskId });
+      throw new Error(`Task ${taskId} not found`);
+    }
+
+    const boss = getBoss();
+    if (!boss) {
+      throw new Error('Boss not initialized');
+    }
+
+    const payload = task.payload as Record<string, unknown>;
+
+    const jobId = await boss.send(
+      'task-queue',
+      {
+        logId: task.id,
+        pipelineId: task.pipelineId,
+        webhookId: task.webhookId ?? undefined,
+        payload,
+      },
+      {
+        priority: 6,
+        retryLimit: 2,
+        retryDelay: 5,
+      }
+    );
+
+    if (!jobId) {
+      throw new Error(`Failed to enqueue retry for task ${task.id}`);
+    }
+
+    await prisma.task.update({
+      where: { id: task.id },
+      data: {
+        status: 'pending',
+        error: null,
+        completedAt: null,
+        updatedAt: new Date(),
+      },
+    });
+
+    logger.info('Task re-enqueued successfully', {
+      taskId: task.id,
+      jobId,
+      pipelineId: task.pipelineId,
+    });
+
+    return {
+      taskId: task.id,
+      jobId,
+      status: 'pending',
+    };
+  } catch (error) {
+    logger.error('Failed to retry task', {
+      taskId,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    throw error;
+  }
+}
+
+/**
  * Update task status after processing
  * @param taskId - The task ID
  * @param status - New status (processing, completed, failed)

@@ -1,10 +1,36 @@
 import { useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, CheckCircle2, Clock3, Loader2 } from 'lucide-react';
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  Legend,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from 'recharts';
 import { Badge } from '../components/ui/badge';
 import { Card } from '../components/ui/card';
 import { getDashboardStats, type DashboardStats } from '../api/stats.service';
 
 type LoadState = 'idle' | 'loading' | 'success' | 'error';
+
+const statusColors = {
+  Completed: '#34d399',
+  Failed: '#f43f5e',
+  Pending: '#38bdf8',
+  Processing: '#60a5fa',
+};
+
+const riskColors = {
+  Low: '#34d399',
+  Medium: '#facc15',
+  High: '#f43f5e',
+};
 
 export function DashboardPage() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
@@ -58,6 +84,31 @@ export function DashboardPage() {
     ];
   }, [stats]);
 
+  const statusChartData = useMemo(() => {
+    if (!stats) {
+      return [];
+    }
+
+    return [
+      { name: 'Completed', value: stats.statusCounts.completed },
+      { name: 'Failed', value: stats.statusCounts.failed },
+      { name: 'Pending', value: stats.statusCounts.pending },
+      { name: 'Processing', value: stats.statusCounts.processing },
+    ];
+  }, [stats]);
+
+  const riskChartData = useMemo(() => {
+    if (!stats) {
+      return [];
+    }
+
+    return [
+      { name: 'Low', value: stats.riskDistribution.Low },
+      { name: 'Medium', value: stats.riskDistribution.Medium },
+      { name: 'High', value: stats.riskDistribution.High },
+    ];
+  }, [stats]);
+
   return (
     <section className="space-y-6">
       <div>
@@ -106,6 +157,71 @@ export function DashboardPage() {
               <Badge variant="danger">Failed: {stats.statusCounts.failed}</Badge>
             </div>
           </Card>
+
+          <div className="grid gap-4 xl:grid-cols-2">
+            <Card className="space-y-4">
+              <h3 className="text-sm font-medium uppercase tracking-[0.12em] text-zinc-400">
+                StatusChart
+              </h3>
+              <div className="h-72 w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={statusChartData}
+                      dataKey="value"
+                      nameKey="name"
+                      innerRadius={60}
+                      outerRadius={100}
+                      paddingAngle={3}
+                    >
+                      {statusChartData.map((entry) => (
+                        <Cell
+                          key={entry.name}
+                          fill={statusColors[entry.name as keyof typeof statusColors]}
+                        />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: '#111827',
+                        border: '1px solid #3f3f46',
+                        color: '#e4e4e7',
+                      }}
+                    />
+                    <Legend wrapperStyle={{ color: '#d4d4d8' }} />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+            </Card>
+
+            <Card className="space-y-4">
+              <h3 className="text-sm font-medium uppercase tracking-[0.12em] text-zinc-400">
+                RiskAnalysis
+              </h3>
+              <div className="h-72 w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={riskChartData}>
+                    <CartesianGrid stroke="#3f3f46" strokeDasharray="3 3" />
+                    <XAxis dataKey="name" stroke="#a1a1aa" />
+                    <YAxis stroke="#a1a1aa" allowDecimals={false} />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: '#111827',
+                        border: '1px solid #3f3f46',
+                        color: '#e4e4e7',
+                      }}
+                    />
+                    <Legend wrapperStyle={{ color: '#d4d4d8' }} />
+                    <Bar dataKey="value" name="Risk Count" radius={[8, 8, 0, 0]}>
+                      {riskChartData.map((entry) => (
+                        <Cell key={entry.name} fill={riskColors[entry.name as keyof typeof riskColors]} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </Card>
+          </div>
         </>
       )}
     </section>

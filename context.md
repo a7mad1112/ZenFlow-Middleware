@@ -171,6 +171,15 @@
   - copy task ID button for operations/debugging
   - refresh hooks to reload log status/details after successful retry.
 
+### 21. Dashboard Visual Analytics (Recharts)
+- Installed `recharts` in `dashboard` frontend.
+- Enhanced `dashboard/src/pages/dashboard-page.tsx` with transformed stats datasets for chart rendering:
+  - `statusCounts` -> status pie chart data (`{ name, value }`)
+  - `riskDistribution` -> risk bar chart data (`{ name, value }`).
+- Added `StatusChart` as a responsive `PieChart` with semantic colors and dark-themed tooltip/legend.
+- Added `RiskAnalysis` as a responsive `BarChart` with semantic risk colors, subtle dark gridlines, and readable axis/legend styling.
+- Placed both charts in a responsive 2-column grid below existing stats cards to create a visual command center layout.
+
 ## Future Plan (Roadmap)
 
 ### Monitoring and Operations

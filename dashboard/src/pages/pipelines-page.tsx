@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Form, Formik } from 'formik';
 import * as Yup from 'yup';
-import { Loader2, Plus, Trash2, X } from 'lucide-react';
+import { ArrowRight, Loader2, Plus, Sparkles, Trash2, X } from 'lucide-react';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
 import { Card } from '../components/ui/card';
@@ -38,6 +38,47 @@ function formatDate(value: string): string {
     return 'N/A';
   }
   return date.toLocaleString();
+}
+
+function formatShortDate(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.valueOf())) {
+    return 'N/A';
+  }
+
+  return date.toLocaleDateString(undefined, {
+    month: 'short',
+    day: '2-digit',
+    year: 'numeric',
+  });
+}
+
+function buildActionFlow(enabledActions: ActionType[]): string[] {
+  return actionItems
+    .filter((item) => enabledActions.includes(item.key))
+    .map((item) => item.label);
+}
+
+function buildActionTypeText(enabledActions: ActionType[]): string {
+  const flow = buildActionFlow(enabledActions);
+  return flow.length > 0 ? flow.join('-') : 'No active actions';
+}
+
+function ActionFlow({ actions }: { actions: string[] }) {
+  if (actions.length === 0) {
+    return <p className="text-xs text-zinc-500">No active actions configured.</p>;
+  }
+
+  return (
+    <div className="flex flex-wrap items-center gap-1.5">
+      {actions.map((action, index) => (
+        <div key={`${action}:${index}`} className="flex items-center gap-1.5">
+          <Badge className="bg-sky-500/15 text-sky-300">{action}</Badge>
+          {index < actions.length - 1 && <ArrowRight size={13} className="text-zinc-500" />}
+        </div>
+      ))}
+    </div>
+  );
 }
 
 function ToggleButton({
@@ -154,6 +195,7 @@ export function PipelinesPage() {
       <div className="grid gap-4 lg:grid-cols-2">
         {pipelines.map((pipeline) => (
           <Card key={pipeline.id} className="space-y-4">
+            {/** Observability metadata block */}
             <div className="flex items-start justify-between gap-3">
               <div>
                 <h3 className="text-lg font-semibold text-zinc-100">{pipeline.name}</h3>
@@ -180,6 +222,20 @@ export function PipelinesPage() {
                   )}
                 </Button>
               </div>
+            </div>
+
+            <div className="rounded-lg border border-zinc-800/80 bg-zinc-900/40 p-3">
+              <p className="text-xs uppercase tracking-wide text-zinc-500">Action Type</p>
+              <p className="mt-1 text-sm font-medium text-zinc-100">
+                {buildActionTypeText(pipeline.enabledActions)}
+              </p>
+              <p className="mt-2 text-xs uppercase tracking-wide text-zinc-500">Created Date</p>
+              <p className="mt-1 text-sm text-zinc-300">{formatShortDate(pipeline.createdAt)}</p>
+            </div>
+
+            <div className="space-y-2 rounded-lg border border-zinc-800/80 bg-zinc-900/40 p-3">
+              <p className="text-xs uppercase tracking-wide text-zinc-500">Action Flow</p>
+              <ActionFlow actions={buildActionFlow(pipeline.enabledActions)} />
             </div>
 
             <div className="grid gap-3 sm:grid-cols-2">
@@ -304,6 +360,20 @@ export function PipelinesPage() {
                     {touched.actionType && errors.actionType && (
                       <p className="mt-1 text-xs text-rose-300">{errors.actionType}</p>
                     )}
+                  </div>
+
+                  <div className="rounded-lg border border-zinc-800/80 bg-zinc-900/60 p-3">
+                    <p className="mb-2 flex items-center gap-2 text-xs uppercase tracking-wide text-zinc-500">
+                      <Sparkles size={13} />
+                      Action Preview
+                    </p>
+                    <ActionFlow
+                      actions={
+                        actionItems
+                          .filter((item) => item.key === values.actionType)
+                          .map((item) => item.label)
+                      }
+                    />
                   </div>
 
                   <div className="flex justify-end gap-2">

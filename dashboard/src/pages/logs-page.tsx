@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Loader2, RefreshCw } from 'lucide-react';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
@@ -7,6 +7,8 @@ import { LogDetailDrawer } from '../components/logs/LogDetailDrawer';
 import { getLogById, getLogs, type LogDetail, type LogListItem } from '../services/logs.service';
 
 type LoadState = 'idle' | 'loading' | 'success' | 'error';
+type StatusFilter = 'all' | 'completed' | 'failed' | 'pending';
+type RiskFilter = 'all' | 'High' | 'Medium' | 'Low';
 
 function formatDate(value: string): string {
   const date = new Date(value);
@@ -29,17 +31,43 @@ function getRiskVariant(riskLevel: LogListItem['riskLevel']): 'success' | 'warni
   return 'default';
 }
 
+function normalizeDateInput(value: string, endOfDay: boolean): number | null {
+  if (!value) {
+    return null;
+  }
+
+  const dateValue = new Date(`${value}T${endOfDay ? '23:59:59.999' : '00:00:00.000'}`);
+  if (Number.isNaN(dateValue.valueOf())) {
+    return null;
+  }
+
+  return dateValue.getTime();
+}
+
+function resolveEventType(log: LogListItem): string {
+  if (log.webhook?.eventType && log.webhook.eventType.trim() !== '') {
+    return log.webhook.eventType;
+  }
+
+  return 'Unknown';
+}
+
 export function LogsPage() {
   const [logs, setLogs] = useState<LogListItem[]>([]);
   const [state, setState] = useState<LoadState>('idle');
   const [selectedLogId, setSelectedLogId] = useState<string | null>(null);
   const [detail, setDetail] = useState<LogDetail | null>(null);
   const [detailState, setDetailState] = useState<LoadState>('idle');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+  const [riskFilter, setRiskFilter] = useState<RiskFilter>('all');
+  const [pipelineSearch, setPipelineSearch] = useState('');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
 
   const fetchLogs = useCallback(async () => {
     setState((prev) => (prev === 'success' ? 'success' : 'loading'));
     try {
-      const response = await getLogs({ page: 1, limit: 50 });
+      const response = await getLogs({ page: 1, limit: 200 });
       setLogs(response.data);
       setState('success');
     } catch {
@@ -75,6 +103,46 @@ export function LogsPage() {
     };
   }, [fetchLogs, fetchDetail, selectedLogId]);
 
+  const filteredLogs = useMemo(() => {
+    const normalizedSearch = pipelineSearch.trim().toLowerCase();
+    const start = normalizeDateInput(startDate, false);
+    const end = normalizeDateInput(endDate, true);
+
+    return logs.filter((log) => {
+      if (statusFilter !== 'all' && log.status !== statusFilter) {
+        return false;
+      }
+
+      if (riskFilter !== 'all' && log.riskLevel !== riskFilter) {
+        return false;
+      }
+
+      if (normalizedSearch) {
+        const pipelineName = (log.pipeline?.name ?? '').toLowerCase();
+        const pipelineId = (log.pipeline?.id ?? log.pipelineId ?? '').toLowerCase();
+        const matchesSearch = pipelineName.includes(normalizedSearch) || pipelineId.includes(normalizedSearch);
+        if (!matchesSearch) {
+          return false;
+        }
+      }
+
+      const createdTimestamp = new Date(log.createdAt).getTime();
+      if (Number.isNaN(createdTimestamp)) {
+        return false;
+      }
+
+      if (start !== null && createdTimestamp < start) {
+        return false;
+      }
+
+      if (end !== null && createdTimestamp > end) {
+        return false;
+      }
+
+      return true;
+    });
+  }, [logs, statusFilter, riskFilter, pipelineSearch, startDate, endDate]);
+
   return (
     <section className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -103,12 +171,76 @@ export function LogsPage() {
         </Card>
       )}
 
+      <Card className="space-y-3">
+        <div className="flex flex-wrap items-end gap-3">
+          <div className="min-w-[150px] flex-1">
+            <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-zinc-400">Status</label>
+            <select
+              value={statusFilter}
+              onChange={(event) => setStatusFilter(event.target.value as StatusFilter)}
+              className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
+            >
+              <option value="all">All</option>
+              <option value="completed">Completed</option>
+              <option value="failed">Failed</option>
+              <option value="pending">Pending</option>
+            </select>
+          </div>
+
+          <div className="min-w-[150px] flex-1">
+            <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-zinc-400">Risk</label>
+            <select
+              value={riskFilter}
+              onChange={(event) => setRiskFilter(event.target.value as RiskFilter)}
+              className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
+            >
+              <option value="all">All</option>
+              <option value="High">High</option>
+              <option value="Medium">Medium</option>
+              <option value="Low">Low</option>
+            </select>
+          </div>
+
+          <div className="min-w-[220px] flex-[2]">
+            <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-zinc-400">Pipeline Search</label>
+            <input
+              type="text"
+              value={pipelineSearch}
+              onChange={(event) => setPipelineSearch(event.target.value)}
+              placeholder="Search by pipeline name or ID"
+              className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500"
+            />
+          </div>
+
+          <div className="min-w-[170px] flex-1">
+            <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-zinc-400">Start Date</label>
+            <input
+              type="date"
+              value={startDate}
+              onChange={(event) => setStartDate(event.target.value)}
+              className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
+            />
+          </div>
+
+          <div className="min-w-[170px] flex-1">
+            <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-zinc-400">End Date</label>
+            <input
+              type="date"
+              value={endDate}
+              onChange={(event) => setEndDate(event.target.value)}
+              className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
+            />
+          </div>
+        </div>
+      </Card>
+
       <Card className="overflow-x-auto p-0">
         <table className="w-full min-w-[960px] text-left text-sm">
           <thead className="border-b border-zinc-800 bg-zinc-900/80 text-zinc-400">
             <tr>
               <th className="px-4 py-3 font-medium">Task</th>
               <th className="px-4 py-3 font-medium">Pipeline</th>
+              <th className="px-4 py-3 font-medium">Event</th>
               <th className="px-4 py-3 font-medium">Status</th>
               <th className="px-4 py-3 font-medium">Risk</th>
               <th className="px-4 py-3 font-medium">Attempts</th>
@@ -116,7 +248,7 @@ export function LogsPage() {
             </tr>
           </thead>
           <tbody>
-            {logs.map((log) => (
+            {filteredLogs.map((log) => (
               <tr
                 key={log.id}
                 className="cursor-pointer border-b border-zinc-800/70 text-zinc-200 transition-colors hover:bg-zinc-900/50"
@@ -127,6 +259,7 @@ export function LogsPage() {
               >
                 <td className="px-4 py-3 font-mono text-xs">{log.id.slice(0, 10)}...</td>
                 <td className="px-4 py-3">{log.pipeline?.name ?? 'N/A'}</td>
+                <td className="px-4 py-3 text-zinc-300">{resolveEventType(log)}</td>
                 <td className="px-4 py-3">
                   <Badge variant={getStatusVariant(log.status)}>{log.status}</Badge>
                 </td>
@@ -137,10 +270,10 @@ export function LogsPage() {
                 <td className="px-4 py-3 text-zinc-400">{formatDate(log.updatedAt)}</td>
               </tr>
             ))}
-            {logs.length === 0 && state === 'success' && (
+            {filteredLogs.length === 0 && state === 'success' && (
               <tr>
-                <td colSpan={6} className="px-4 py-10 text-center text-zinc-400">
-                  No logs yet. Send a webhook from Postman and it will appear here.
+                <td colSpan={7} className="px-4 py-10 text-center text-zinc-400">
+                  No logs match the selected filters.
                 </td>
               </tr>
             )}

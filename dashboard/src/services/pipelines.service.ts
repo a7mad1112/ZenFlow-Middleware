@@ -107,6 +107,6 @@ export async function toggleAction(
     payload.emailEnabled = enabled;
   }
 
-  const response = await apiClient.patch<ApiEnvelope<Pipeline>>(`/api/pipelines/${pipelineId}`, payload);
+  const response = await apiClient.patch<ApiEnvelope<Pipeline>>(`/api/pipelines/${pipelineId}/actions`, payload);
   return normalizePipeline(response.data.data);
 }

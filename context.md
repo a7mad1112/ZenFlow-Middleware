@@ -195,6 +195,20 @@
   - Discord send failures are now non-blocking in converter workflow and stored as structured failure details (`status`, `error`).
   - AI summary generation now respects `enabledActions` and falls back safely when disabled or unavailable.
 
+### 23. Dashboard Logs Filtering + Pipeline Metadata UI
+- Enhanced `dashboard/src/pages/logs-page.tsx` with advanced client-side filter bar:
+  - Status dropdown: All / Completed / Failed / Pending.
+  - Risk dropdown: All / High / Medium / Low.
+  - Pipeline search by name or ID.
+  - Start/end date range filtering via date inputs.
+- Added `Event` column to logs table using webhook event type metadata.
+- Enhanced `dashboard/src/pages/pipelines-page.tsx` cards with observability metadata:
+  - Action Type summary string (e.g. `XML-Discord-Email`).
+  - Created Date in short human-readable format.
+  - Horizontal visual action flow with badges and arrows for active pipeline actions.
+- Added modal-level `Action Preview` block before create/save submission.
+- Updated frontend pipeline toggle API integration in `dashboard/src/services/pipelines.service.ts` to call dedicated backend endpoint: `PATCH /api/pipelines/:id/actions`.
+
 ## Future Plan (Roadmap)
 
 ### Monitoring and Operations

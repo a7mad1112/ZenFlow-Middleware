@@ -6,10 +6,10 @@
 - [x] Hardening: Isolate Discord/Email failures so they don't fail the entire task (Channel-specific error logging).
 
 ## Dashboard UI Enhancements
-- [ ] Add Filters to Logs Table (Status, Pipeline, Risk Level, Date Range).
-- [ ] Add "Webhook/Event Type" column to the Logs table.
-- [ ] Display "Action Type" and "Created Date" in Pipeline cards.
-- [ ] Add "Action Preview" (Visual flow) before saving pipeline changes.
+- [x] Add Filters to Logs Table (Status, Pipeline, Risk Level, Date Range).
+- [x] Add "Webhook/Event Type" column to the Logs table.
+- [x] Display "Action Type" and "Created Date" in Pipeline cards.
+- [x] Add "Action Preview" (Visual flow) before saving pipeline changes.
 
 ## Logic & Reliability
 - [ ] Implement `skipEmail` and future `skipAI` / `skipPDF` flags in the Worker engine.

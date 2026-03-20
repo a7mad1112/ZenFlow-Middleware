@@ -1,108 +1,155 @@
-# Endpoints Usage
+# Discord Forwarder Pipeline Usage (From Scratch)
+
+This guide walks you through a complete test flow:
+1. Send JSON to the webhook endpoint.
+2. Convert JSON to XML in Action 1.
+3. Forward XML to Discord in Action 2.
+4. Verify result in database and API status endpoint.
 
 Base URL: `http://localhost:3000`
 
-## Health
+## 1. Prerequisites
+
+1. Docker and Docker Compose are running.
+2. App dependencies are installed.
+3. Database is migrated.
+4. `DISCORD_WEBHOOK_URL` is set in your environment.
+
+Example `.env` values:
+
+```env
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/webhook_db
+PORT=3000
+NODE_ENV=development
+LOG_LEVEL=debug
+DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/1484577996676399105/TIEjxf87BaiNBpMUOv-SomMZA7HoFYInfO_o-PKn7EWmP5hyBttafmqUpCsJlbHNs2V5
+```
+
+## 2. Start Services
+
+Use either local Node or Docker.
+
+### Option A: Local run
+
+```bash
+npm install
+npm run db:migrate
+npm run dev
+```
+
+### Option B: Docker Compose
+
+```bash
+docker compose up --build
+```
+
+## 3. Confirm Health
 
 ### GET /health
-Checks API + queue health.
 
-## Core Webhook Routes
-
-### POST /webhooks
-Enqueue a webhook event (legacy route).
-
-Body:
-```json
-{
-  "id": "550e8400-e29b-41d4-a716-446655440000",
-  "eventType": "user.created",
-  "data": { "name": "Ali" },
-  "userId": "user-1"
-}
+```bash
+curl http://localhost:3000/health
 ```
 
-### GET /tasks/:id
-Returns basic task details placeholder response.
+Expected: queue connected and healthy response.
 
-## Pipeline Routes
+## 4. Create Converter Pipeline
+
+Create a pipeline with `actionType: CONVERTER`.
 
 ### POST /api/pipelines
-Create a pipeline.
 
-Body:
-```json
-{
-  "name": "Email Pipeline",
-  "actionType": "EMAIL",
-  "description": "Send email notifications"
-}
+```bash
+curl -X POST http://localhost:3000/api/pipelines \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Discord XML Pipeline",
+    "description": "Convert JSON to XML and forward to Discord",
+    "actionType": "CONVERTER"
+  }'
 ```
 
-### GET /api/pipelines
-List pipelines.
+Save `data.id` from response as `PIPELINE_ID`.
 
-### GET /api/pipelines/:id
-Get one pipeline.
-
-### PUT /api/pipelines/:id
-Update a pipeline.
-
-Body (partial):
-```json
-{
-  "description": "Updated description"
-}
-```
-
-### DELETE /api/pipelines/:id
-Delete a pipeline.
-
-## Pipeline Subscribers
-
-### GET /api/pipelines/:id/subscribers
-List subscribers for a pipeline.
-
-### POST /api/pipelines/:id/subscribers
-Add subscriber.
-
-Body:
-```json
-{
-  "targetUrl": "https://example.com/webhook"
-}
-```
-
-## Pipeline Webhooks
-
-### GET /api/pipelines/:id/webhooks
-List webhooks linked to a pipeline.
+## 5. Create Webhook for Pipeline
 
 ### POST /api/pipelines/:id/webhooks
-Create/link webhook to a pipeline.
 
-Body:
-```json
-{
-  "eventType": "order.created",
-  "url": "https://example.com/events"
-}
+```bash
+curl -X POST http://localhost:3000/api/pipelines/PIPELINE_ID/webhooks \
+  -H "Content-Type: application/json" \
+  -d '{
+    "eventType": "order.created",
+    "url": "https://example.com/receiver"
+  }'
 ```
 
-## Ingestion + Tracking
+Save `data.id` from response as `WEBHOOK_ID`.
+
+## 6. Send Test JSON Payload
 
 ### POST /api/webhooks/:webhookId
-Ingest payload for processing (supports webhook ID or pipeline ID in controller logic).
 
-Body:
-```json
-{
-  "orderId": "123",
-  "amount": 250
-}
+```bash
+curl -X POST http://localhost:3000/api/webhooks/WEBHOOK_ID \
+  -H "Content-Type: application/json" \
+  -d '{
+    "orderId": "ORD-1001",
+    "customer": {
+      "name": "Ali Alawneh",
+      "email": "ali@example.com"
+    },
+    "items": [
+      { "sku": "SKU-1", "qty": 2, "price": 25 },
+      { "sku": "SKU-2", "qty": 1, "price": 40 }
+    ],
+    "total": 90,
+    "currency": "USD"
+  }'
 ```
 
-Response includes `logId` and `jobId`.
+Save `logId` from response.
+
+## 7. Check Processing Status
 
 ### GET /api/webhooks/:webhookId/status/:logId
-Check processing status/result for a queued job.
+
+```bash
+curl http://localhost:3000/api/webhooks/WEBHOOK_ID/status/LOG_ID
+```
+
+Expected when successful:
+1. `status` is `completed` (or processed equivalent in your environment).
+2. `result` contains XML.
+3. `error` is null.
+
+## 8. Verify Discord Message
+
+In your Discord channel, confirm a new message appears with this structure:
+
+````text
+***New Pipeline Result***
+```xml
+<data>...</data>
+```
+````
+
+The XML content should match what is stored in task `result`.
+
+## 9. Postman-Friendly Quick Flow
+
+If you are testing with Postman:
+1. Create pipeline: `POST /api/pipelines`
+2. Create webhook: `POST /api/pipelines/:id/webhooks`
+3. Ingest payload: `POST /api/webhooks/:webhookId`
+4. Poll status: `GET /api/webhooks/:webhookId/status/:logId`
+5. Check Discord channel
+
+## 10. Failure Behavior (Important)
+
+If Discord forward fails (4xx/5xx):
+1. XML conversion result is still preserved in `result`.
+2. Task is marked failed.
+3. Error details are stored in `error` and logs.
+
+This helps you debug Discord issues without losing conversion output.

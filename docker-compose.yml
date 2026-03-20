@@ -30,6 +30,7 @@ services:
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/webhook_processor
       PG_BOSS_POOL_SIZE: 10
       WORKER_CONCURRENCY: 5
+      DISCORD_WEBHOOK_URL: ${DISCORD_WEBHOOK_URL}
     ports:
       - "3000:3000"
     # Run the compiled Node.js application (NO npm run dev which requires tsx)

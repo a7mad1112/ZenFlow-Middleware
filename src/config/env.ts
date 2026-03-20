@@ -14,6 +14,15 @@ const envSchema = z.object({
   pgBossNewJobCheckInterval: z.coerce.number().default(1000),
   workerConcurrency: z.coerce.number().default(5),
   taskTimeoutMs: z.coerce.number().default(30000),
+  discordWebhookUrl: z.preprocess(
+    (value) => {
+      if (typeof value === 'string' && value.trim() === '') {
+        return undefined;
+      }
+      return value;
+    },
+    z.string().url().optional()
+  ),
 });
 
 export type Config = z.infer<typeof envSchema>;
@@ -28,6 +37,7 @@ function loadConfig(): Config {
     pgBossNewJobCheckInterval: process.env.PG_BOSS_NEW_JOB_CHECK_INTERVAL,
     workerConcurrency: process.env.WORKER_CONCURRENCY,
     taskTimeoutMs: process.env.TASK_TIMEOUT_MS,
+    discordWebhookUrl: process.env.DISCORD_WEBHOOK_URL,
   };
 
   return envSchema.parse(env);

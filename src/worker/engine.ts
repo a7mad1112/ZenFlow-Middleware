@@ -3,6 +3,7 @@ import { PrismaClient } from '@prisma/client';
 import { logger } from '../shared/logger.js';
 import { jsonToXml, sanitizeObjectForXml } from '../shared/transformers.js';
 import { config } from '../config/env.js';
+import { sendXmlToDiscord } from '../services/discord.service.js';
 
 const prisma = new PrismaClient();
 
@@ -169,6 +170,7 @@ async function executeAction(
 async function processTask(taskData: TaskPayload): Promise<void> {
   const { pipelineId, logId, payload, webhookId } = taskData;
   const prismaAny = prisma as any;
+  let result: string | null = null;
 
   try {
     logger.info('Processing task from queue', {
@@ -215,13 +217,27 @@ async function processTask(taskData: TaskPayload): Promise<void> {
     });
 
     // Execute the action
-    const result = await executeAction(pipeline.actionType, payload);
+    result = await executeAction(pipeline.actionType, payload);
 
     logger.info('Action executed successfully', {
       taskId: logId,
       actionType: pipeline.actionType,
       resultLength: result.length,
     });
+
+    if (pipeline.actionType === 'CONVERTER') {
+      logger.info('Forwarding converter result to Discord', {
+        taskId: logId,
+        pipelineId: pipelineId,
+      });
+
+      await sendXmlToDiscord(result);
+
+      logger.info('Converter result forwarded to Discord successfully', {
+        taskId: logId,
+        pipelineId: pipelineId,
+      });
+    }
 
     // Update log/task status to PROCESSED with result
     if (prismaAny.webhookLog?.update) {
@@ -267,6 +283,7 @@ async function processTask(taskData: TaskPayload): Promise<void> {
           data: {
             status: 'FAILED',
             error: error instanceof Error ? error.message : String(error),
+            ...(result !== null ? { result: result } : {}),
             updatedAt: new Date(),
           },
         });
@@ -276,6 +293,7 @@ async function processTask(taskData: TaskPayload): Promise<void> {
           data: {
             status: 'failed',
             error: error instanceof Error ? error.message : String(error),
+            ...(result !== null ? { result: result as any } : {}),
             updatedAt: new Date(),
           },
         });

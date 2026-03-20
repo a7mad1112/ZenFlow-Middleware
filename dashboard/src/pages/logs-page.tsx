@@ -1,27 +1,12 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Loader2, RefreshCw, X } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
+import { Loader2, RefreshCw } from 'lucide-react';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
 import { Card } from '../components/ui/card';
+import { LogDetailDrawer } from '../components/logs/LogDetailDrawer';
 import { getLogById, getLogs, type LogDetail, type LogListItem } from '../services/logs.service';
 
 type LoadState = 'idle' | 'loading' | 'success' | 'error';
-type TimelineState = 'done' | 'failed' | 'pending' | 'skipped';
-
-type ResultShape = {
-  xml?: unknown;
-  aiSummary?: unknown;
-  pdf?: {
-    generated?: boolean;
-    error?: string;
-  };
-  email?: {
-    attempted?: boolean;
-    sent?: boolean;
-    skippedReason?: string;
-    error?: string;
-  };
-};
 
 function formatDate(value: string): string {
   const date = new Date(value);
@@ -42,40 +27,6 @@ function getRiskVariant(riskLevel: LogListItem['riskLevel']): 'success' | 'warni
   if (riskLevel === 'Medium') return 'warning';
   if (riskLevel === 'High') return 'danger';
   return 'default';
-}
-
-function getTimelineFromResult(result: ResultShape | null): Array<{ label: string; state: TimelineState }> {
-  const hasXml = Boolean(typeof result?.xml === 'string' && result.xml.length > 0);
-  const hasAi = Boolean(typeof result?.aiSummary === 'string' && result.aiSummary.length > 0);
-
-  const pdfState: TimelineState = result?.pdf?.generated
-    ? 'done'
-    : result?.pdf?.error
-      ? 'failed'
-      : 'pending';
-
-  let emailState: TimelineState = 'pending';
-  if (result?.email?.sent) {
-    emailState = 'done';
-  } else if (result?.email?.attempted && !result.email.sent) {
-    emailState = 'failed';
-  } else if (result?.email?.skippedReason) {
-    emailState = 'skipped';
-  }
-
-  return [
-    { label: 'XML Created', state: hasXml ? 'done' : 'pending' },
-    { label: 'AI Analyzed', state: hasAi ? 'done' : 'pending' },
-    { label: 'PDF Generated', state: pdfState },
-    { label: 'Email Sent', state: emailState },
-  ];
-}
-
-function TimelineBadge({ state }: { state: TimelineState }) {
-  if (state === 'done') return <Badge variant="success">Done</Badge>;
-  if (state === 'failed') return <Badge variant="danger">Failed</Badge>;
-  if (state === 'skipped') return <Badge>Skipped</Badge>;
-  return <Badge variant="warning">Pending</Badge>;
 }
 
 export function LogsPage() {
@@ -123,15 +74,6 @@ export function LogsPage() {
       window.clearInterval(timer);
     };
   }, [fetchLogs, fetchDetail, selectedLogId]);
-
-  const resultObject = useMemo(() => {
-    if (!detail?.result || typeof detail.result !== 'object' || Array.isArray(detail.result)) {
-      return null;
-    }
-    return detail.result as ResultShape;
-  }, [detail?.result]);
-
-  const timeline = useMemo(() => getTimelineFromResult(resultObject), [resultObject]);
 
   return (
     <section className="space-y-5">
@@ -206,105 +148,16 @@ export function LogsPage() {
         </table>
       </Card>
 
-      {selectedLogId && (
-        <div className="fixed inset-0 z-30 flex justify-end bg-black/50">
-          <aside className="h-full w-full max-w-2xl overflow-y-auto border-l border-zinc-800 bg-zinc-950 p-5">
-            <div className="mb-5 flex items-center justify-between">
-              <div>
-                <h3 className="text-lg font-semibold text-zinc-100">Log Detail</h3>
-                <p className="text-xs text-zinc-400">{selectedLogId}</p>
-              </div>
-              <Button
-                variant="ghost"
-                onClick={() => {
-                  setSelectedLogId(null);
-                  setDetail(null);
-                  setDetailState('idle');
-                }}
-                aria-label="Close drawer"
-              >
-                <X size={18} />
-              </Button>
-            </div>
-
-            {detailState === 'loading' && (
-              <Card className="flex items-center gap-2 text-zinc-300">
-                <Loader2 size={16} className="animate-spin" />
-                Loading detail...
-              </Card>
-            )}
-
-            {detailState === 'error' && (
-              <Card className="border-rose-500/30 bg-rose-500/10 text-rose-200">
-                Failed to load detail for this log.
-              </Card>
-            )}
-
-            {detailState === 'success' && detail && (
-              <div className="space-y-4">
-                <Card className="space-y-2">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Badge variant={getStatusVariant(detail.status)}>{detail.status}</Badge>
-                    <Badge variant={getRiskVariant(detail.riskLevel)}>
-                      Risk: {detail.riskLevel ?? 'Unknown'}
-                    </Badge>
-                  </div>
-                  <p className="text-sm text-zinc-400">Pipeline: {detail.pipeline?.name ?? 'N/A'}</p>
-                  <p className="text-sm text-zinc-400">Updated: {formatDate(detail.updatedAt)}</p>
-                  {detail.error && <p className="text-sm text-rose-300">Error: {detail.error}</p>}
-                </Card>
-
-                <Card className="space-y-3">
-                  <h4 className="text-sm font-semibold uppercase tracking-[0.12em] text-zinc-400">
-                    Timeline
-                  </h4>
-                  <div className="space-y-2">
-                    {timeline.map((step) => (
-                      <div key={step.label} className="flex items-center justify-between rounded-md bg-zinc-900 px-3 py-2">
-                        <p className="text-sm text-zinc-200">{step.label}</p>
-                        <TimelineBadge state={step.state} />
-                      </div>
-                    ))}
-                  </div>
-                </Card>
-
-                <Card className="space-y-3">
-                  <h4 className="text-sm font-semibold uppercase tracking-[0.12em] text-zinc-400">
-                    AI Analysis
-                  </h4>
-                  <p className="whitespace-pre-wrap rounded-md bg-zinc-900 p-3 text-sm text-zinc-200">
-                    {typeof resultObject?.aiSummary === 'string'
-                      ? resultObject.aiSummary
-                      : 'No AI summary available.'}
-                  </p>
-                </Card>
-
-                <Card className="space-y-3">
-                  <h4 className="text-sm font-semibold uppercase tracking-[0.12em] text-zinc-400">
-                    PDF Status
-                  </h4>
-                  <p className="text-sm text-zinc-200">
-                    {resultObject?.pdf?.generated
-                      ? 'PDF generated successfully.'
-                      : resultObject?.pdf?.error
-                        ? `PDF failed: ${resultObject.pdf.error}`
-                        : 'PDF not generated yet.'}
-                  </p>
-                </Card>
-
-                <Card className="space-y-3">
-                  <h4 className="text-sm font-semibold uppercase tracking-[0.12em] text-zinc-400">
-                    Request Payload
-                  </h4>
-                  <pre className="overflow-x-auto rounded-md bg-zinc-900 p-3 text-xs text-zinc-200">
-                    {JSON.stringify(detail.payload ?? {}, null, 2)}
-                  </pre>
-                </Card>
-              </div>
-            )}
-          </aside>
-        </div>
-      )}
+      <LogDetailDrawer
+        selectedLogId={selectedLogId}
+        detail={detail}
+        detailState={detailState}
+        onClose={() => {
+          setSelectedLogId(null);
+          setDetail(null);
+          setDetailState('idle');
+        }}
+      />
     </section>
   );
 }

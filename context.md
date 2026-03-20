@@ -112,6 +112,17 @@
   - shows AI summary and PDF status summary.
 - Added live update behavior with 5-second polling plus manual Refresh button for near-real-time monitoring.
 
+### 16. Log Drawer Data Mapping Correction
+- Extracted drawer into dedicated component `dashboard/src/components/logs/LogDetailDrawer.tsx` for clearer integration boundaries.
+- Fixed detail mapping to support both backend result formats:
+  - legacy string result (raw XML)
+  - structured result object (`xml`, `aiSummary`, `pdf`, `email`, `discord`).
+- Updated timeline visualization logic:
+  - for `status=completed`, core actions (`XML Created`, `AI Analyzed`, `Discord Sent`) are shown as `Success`.
+  - PDF and Email steps derive status from actual `result` fields and error/skipped metadata.
+- Improved AI analysis rendering by formatting `aiSummary` strings cleanly and parsing risk from AI text when explicit `riskLevel` is absent.
+- Risk badge in the drawer header now uses derived risk (API riskLevel fallback + AI summary parsing) to avoid unnecessary `Unknown` labels.
+
 ## Future Plan (Roadmap)
 
 ### Monitoring and Operations

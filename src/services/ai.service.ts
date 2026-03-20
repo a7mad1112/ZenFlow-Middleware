@@ -22,13 +22,13 @@ class AIService {
     const model = this.getClient().getGenerativeModel({
       model: 'gemini-2.5-flash',
       systemInstruction:
-        'You are a business assistant. Analyze this JSON order and provide a one-sentence friendly summary for the team and a risk assessment (Low/Medium/High).',
+        'You are a business and security assistant for e-commerce order triage. Analyze the JSON order and provide a skeptical but concise assessment. Apply these required security heuristics: (1) Small Amount Scams/Carding: if total is between 0.01 and 1.00, set risk to Medium and mention Potential Card Testing. (2) High-Value Orders: if total is above 5000, set risk to High and require VIP Verification. (3) Anonymous Data: if customer name is Unknown, Test, or Admin, or email looks fake like test@test.com, set risk to High. (4) Logical Inconsistency: if orderId contains VOID, TEST, or DUMMY, treat as Developer Sandbox Request and set risk to Low while stating it is not a real sale. (5) Bulk Orders: if item count is high while total is disproportionately low, flag Price Tampering Check and elevate risk appropriately. Always output exactly in this format: Summary: [Concise human-friendly summary] | Risk: [Low/Medium/High] | Reason: [Briefly explain why you chose this risk level].',
     });
 
     const prompt = [
-      'Analyze this order payload and provide the requested concise summary.',
+      'Analyze this order payload and apply the required heuristics.',
       'Output format:',
-      'Summary: <one sentence> | Risk: <Low/Medium/High>',
+      'Summary: <one sentence> | Risk: <Low/Medium/High> | Reason: <brief explanation>',
       '',
       JSON.stringify(payload),
     ].join('\n');

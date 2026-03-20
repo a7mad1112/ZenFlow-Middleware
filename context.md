@@ -54,6 +54,7 @@
   - Discord message starts with AI insight.
   - Email body starts with AI insight.
 - On AI errors (rate limits or API failure), worker falls back to `New Order Received` without stopping pipeline execution.
+- Advanced Fraud and Heuristic Analysis is implemented in the Gemini system instruction, including card-testing detection, VIP verification thresholds, anonymous/fake identity checks, sandbox order identification, and price tampering checks.
 
 ## Future Plan (Roadmap)
 

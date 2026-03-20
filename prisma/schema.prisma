@@ -23,6 +23,9 @@ model Pipeline {
   name        String      @unique
   description String?
   actionType  ActionType  @default(CONVERTER)
+  enabledActions String[] @default(["DISCORD", "EMAIL"])
+  discordEnabled Boolean   @default(true)
+  emailEnabled   Boolean   @default(true)
   config      Json?
   isActive    Boolean     @default(true)
   createdAt   DateTime    @default(now())

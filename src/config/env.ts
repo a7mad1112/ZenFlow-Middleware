@@ -23,6 +23,25 @@ const envSchema = z.object({
     },
     z.string().url().optional()
   ),
+  smtpHost: z.string().default('smtp.gmail.com'),
+  smtpPort: z.coerce.number().default(587),
+  smtpSecure: z.preprocess(
+    (value) => {
+      if (value === undefined || value === null || value === '') {
+        return false;
+      }
+
+      if (typeof value === 'boolean') {
+        return value;
+      }
+
+      return String(value).toLowerCase() === 'true';
+    },
+    z.boolean()
+  ),
+  smtpUser: z.string().optional(),
+  smtpPass: z.string().optional(),
+  emailFrom: z.string().optional(),
 });
 
 export type Config = z.infer<typeof envSchema>;
@@ -38,6 +57,12 @@ function loadConfig(): Config {
     workerConcurrency: process.env.WORKER_CONCURRENCY,
     taskTimeoutMs: process.env.TASK_TIMEOUT_MS,
     discordWebhookUrl: process.env.DISCORD_WEBHOOK_URL,
+    smtpHost: process.env.SMTP_HOST,
+    smtpPort: process.env.SMTP_PORT,
+    smtpSecure: process.env.SMTP_SECURE,
+    smtpUser: process.env.SMTP_USER,
+    smtpPass: process.env.SMTP_PASS,
+    emailFrom: process.env.EMAIL_FROM,
   };
 
   return envSchema.parse(env);

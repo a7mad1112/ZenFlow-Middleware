@@ -4,6 +4,7 @@ import { logger } from '../shared/logger.js';
 import { jsonToXml, sanitizeObjectForXml } from '../shared/transformers.js';
 import { config } from '../config/env.js';
 import { sendXmlToDiscord } from '../services/discord.service.js';
+import { emailService } from '../services/email.service.js';
 
 const prisma = new PrismaClient();
 
@@ -12,6 +13,47 @@ export interface TaskPayload {
   webhookId?: string;
   payload: Record<string, unknown>;
   logId: string;
+}
+
+function isDiscordEnabledForPipeline(pipeline: any): boolean {
+  if (typeof pipeline?.discordEnabled === 'boolean') {
+    return pipeline.discordEnabled;
+  }
+
+  const enabledActions = pipeline?.enabledActions;
+  if (Array.isArray(enabledActions)) {
+    return enabledActions.includes('DISCORD');
+  }
+
+  const configDiscordEnabled = pipeline?.config?.discordEnabled;
+  if (typeof configDiscordEnabled === 'boolean') {
+    return configDiscordEnabled;
+  }
+
+  return true;
+}
+
+function shouldSkipDiscordForRequest(payload: Record<string, unknown>): boolean {
+  const metadata = payload.metadata;
+  if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) {
+    return false;
+  }
+
+  return (metadata as { skipDiscord?: unknown }).skipDiscord === true;
+}
+
+function extractCustomerEmail(payload: Record<string, unknown>): string | null {
+  const customer = payload.customer;
+  if (!customer || typeof customer !== 'object' || Array.isArray(customer)) {
+    return null;
+  }
+
+  const email = (customer as { email?: unknown }).email;
+  if (typeof email !== 'string' || email.trim() === '') {
+    return null;
+  }
+
+  return email.trim();
 }
 
 /**
@@ -226,17 +268,57 @@ async function processTask(taskData: TaskPayload): Promise<void> {
     });
 
     if (pipeline.actionType === 'CONVERTER') {
-      logger.info('Forwarding converter result to Discord', {
-        taskId: logId,
-        pipelineId: pipelineId,
-      });
+      const customerEmail = extractCustomerEmail(payload);
+      if (customerEmail) {
+        try {
+          logger.info('Sending order confirmation email', {
+            taskId: logId,
+            pipelineId: pipelineId,
+            to: customerEmail,
+          });
 
-      await sendXmlToDiscord(result);
+          await emailService.sendOrderConfirmation(customerEmail, payload);
+        } catch (emailError) {
+          logger.error('Order confirmation email failed', {
+            taskId: logId,
+            pipelineId: pipelineId,
+            to: customerEmail,
+            error: emailError instanceof Error ? emailError.message : String(emailError),
+          });
+        }
+      } else {
+        logger.info('Skipping order confirmation email: customer.email not present', {
+          taskId: logId,
+          pipelineId: pipelineId,
+        });
+      }
 
-      logger.info('Converter result forwarded to Discord successfully', {
-        taskId: logId,
-        pipelineId: pipelineId,
-      });
+      const skipDiscord = shouldSkipDiscordForRequest(payload);
+      const discordEnabled = isDiscordEnabledForPipeline(pipeline as any);
+
+      if (skipDiscord) {
+        logger.info('Skipping Discord action: metadata.skipDiscord=true', {
+          taskId: logId,
+          pipelineId: pipelineId,
+        });
+      } else if (!discordEnabled) {
+        logger.info('Skipping Discord action: disabled in Pipeline settings', {
+          taskId: logId,
+          pipelineId: pipelineId,
+        });
+      } else {
+        logger.info('Forwarding converter result to Discord', {
+          taskId: logId,
+          pipelineId: pipelineId,
+        });
+
+        await sendXmlToDiscord(result);
+
+        logger.info('Converter result forwarded to Discord successfully', {
+          taskId: logId,
+          pipelineId: pipelineId,
+        });
+      }
     }
 
     // Update log/task status to PROCESSED with result

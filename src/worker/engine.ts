@@ -5,6 +5,7 @@ import { jsonToXml, sanitizeObjectForXml } from '../shared/transformers.js';
 import { config } from '../config/env.js';
 import { sendXmlToDiscord } from '../services/discord.service.js';
 import { emailService } from '../services/email.service.js';
+import { generateInvoice } from '../services/pdf.service.js';
 
 const prisma = new PrismaClient();
 
@@ -268,6 +269,12 @@ async function processTask(taskData: TaskPayload): Promise<void> {
     });
 
     if (pipeline.actionType === 'CONVERTER') {
+      const pdfBuffer = await generateInvoice(payload);
+      logger.info(`✅ PDF generated (size: ${pdfBuffer.length} bytes)`, {
+        taskId: logId,
+        pipelineId: pipelineId,
+      });
+
       const customerEmail = extractCustomerEmail(payload);
       if (customerEmail) {
         try {

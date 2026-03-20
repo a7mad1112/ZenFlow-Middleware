@@ -35,11 +35,16 @@
 - Request-level metadata can selectively skip actions (currently Discord override is implemented).
 - Skip decisions are logged with explicit reason messages.
 
-## Future Plan (Roadmap)
+### 7. Action 4: PDF Generator
+- PDFKit-based invoice generation is implemented in the service layer.
+- Invoice includes:
+  - Header: INVOICE
+  - Order ID and generated date
+  - Customer name and total amount in a clean summary layout
+- Worker integration is active after XML conversion.
+- Current behavior logs generation success and size: `PDF generated (size: X bytes)`.
 
-### Action 4: PDF Generator
-- Build invoice-style PDF generation (PDFKit).
-- Generate and store PDF artifacts tied to processed tasks.
+## Future Plan (Roadmap)
 
 ### Integration: PDF + Email (Action 3)
 - Attach generated invoice PDFs to confirmation emails.

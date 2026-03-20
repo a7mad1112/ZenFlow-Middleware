@@ -91,7 +91,11 @@ class EmailService {
     return this.transporterInstance;
   }
 
-  async sendOrderConfirmation(to: string, payload: any): Promise<void> {
+  async sendOrderConfirmation(
+    to: string,
+    payload: any,
+    attachment?: Buffer
+  ): Promise<void> {
     const transporter = this.getTransporter();
     const from = config.emailFrom || config.smtpUser;
 
@@ -107,6 +111,14 @@ class EmailService {
       to,
       subject,
       html,
+      attachments: attachment
+        ? [
+            {
+              filename: 'invoice.pdf',
+              content: attachment,
+            },
+          ]
+        : undefined,
     });
 
     logger.info('Order confirmation email sent successfully', {

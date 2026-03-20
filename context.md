@@ -28,6 +28,7 @@
   - Customer Name
   - Total Amount
 - Email trigger runs after conversion when `payload.customer.email` is present.
+- Email now supports optional PDF attachment (`invoice.pdf`) from the PDF service.
 - SMTP/env failures are logged without crashing worker execution flow.
 
 ### 6. Smart Routing (Conditional Action Logic)
@@ -43,12 +44,10 @@
   - Customer name and total amount in a clean summary layout
 - Worker integration is active after XML conversion.
 - Current behavior logs generation success and size: `PDF generated (size: X bytes)`.
+- PDF-to-Email integration is complete: generated invoice is attached to customer confirmation emails.
+- If PDF generation fails, system logs warning and sends email without attachment.
 
 ## Future Plan (Roadmap)
-
-### Integration: PDF + Email (Action 3)
-- Attach generated invoice PDFs to confirmation emails.
-- Expand email template to include invoice metadata and attachment references.
 
 ### Action 5: AI Summarizer (Gemini API)
 - Add AI summarization action for payload/result insights.

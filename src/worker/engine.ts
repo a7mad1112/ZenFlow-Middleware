@@ -269,11 +269,20 @@ async function processTask(taskData: TaskPayload): Promise<void> {
     });
 
     if (pipeline.actionType === 'CONVERTER') {
-      const pdfBuffer = await generateInvoice(payload);
-      logger.info(`✅ PDF generated (size: ${pdfBuffer.length} bytes)`, {
-        taskId: logId,
-        pipelineId: pipelineId,
-      });
+      let pdfBuffer: Buffer | undefined;
+      try {
+        pdfBuffer = await generateInvoice(payload);
+        logger.info(`✅ PDF generated (size: ${pdfBuffer.length} bytes)`, {
+          taskId: logId,
+          pipelineId: pipelineId,
+        });
+      } catch (pdfError) {
+        logger.warn('Sending email without PDF attachment due to generation error', {
+          taskId: logId,
+          pipelineId: pipelineId,
+          error: pdfError instanceof Error ? pdfError.message : String(pdfError),
+        });
+      }
 
       const customerEmail = extractCustomerEmail(payload);
       if (customerEmail) {
@@ -284,7 +293,7 @@ async function processTask(taskData: TaskPayload): Promise<void> {
             to: customerEmail,
           });
 
-          await emailService.sendOrderConfirmation(customerEmail, payload);
+          await emailService.sendOrderConfirmation(customerEmail, payload, pdfBuffer);
         } catch (emailError) {
           logger.error('Order confirmation email failed', {
             taskId: logId,

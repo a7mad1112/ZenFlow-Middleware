@@ -38,9 +38,22 @@ services:
       SMTP_PASS: ${SMTP_PASS}
       EMAIL_FROM: ${EMAIL_FROM}
       GEMINI_API_KEY: ${GEMINI_API_KEY}
+      CORS_ORIGINS: http://localhost:5173,http://127.0.0.1:5173
     ports:
       - "3000:3000"
     # Run the compiled Node.js application (NO npm run dev which requires tsx)
+
+  dashboard:
+    build:
+      context: ./dashboard
+      dockerfile: Dockerfile
+    container_name: webhook_dashboard
+    depends_on:
+      - app
+    environment:
+      VITE_API_BASE_URL: http://localhost:3000
+    ports:
+      - "5173:5173"
 
 volumes:
   postgres_data:

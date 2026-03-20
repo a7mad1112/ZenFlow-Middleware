@@ -74,6 +74,28 @@
 - Implemented Axios client at `dashboard/src/api/client.ts` using `import.meta.env.VITE_API_BASE_URL`.
 - Added initial dashboard UI with sidebar + navbar and a Stats Overview page that fetches data from `GET /api/stats`.
 
+### 12. Dashboard Dockerization (Development)
+- Added `dashboard/Dockerfile` for development using `node:18-alpine`, npm install workflow, Vite dev server, and port `5173` exposure.
+- Updated root `docker-compose.yml` with a new `dashboard` service:
+  - Build context `./dashboard`
+  - Port mapping `5173:5173`
+  - Environment variable `VITE_API_BASE_URL=http://localhost:3000`
+  - Dependency on backend `app` service
+- Migrated dashboard Vite config to `dashboard/vite.config.ts` and added Docker-friendly dev server settings (`host`, HMR host/port, and polling-based file watch).
+- Pinned dashboard toolchain to Node 18-compatible Vite versions to match the requested container base image while preserving development HMR behavior.
+
+### 13. Backend CORS Support (Dashboard Integration)
+- Added Express CORS middleware in `src/index.ts` with origin validation against configured allowlist.
+- Added `cors` dependency and `@types/cors` for TypeScript support.
+- Extended environment config (`src/config/env.ts`) with `CORS_ORIGINS` parsing (comma-separated list), defaulting to localhost dashboard origins.
+- Updated Docker Compose backend environment to include `CORS_ORIGINS=http://localhost:5173,http://127.0.0.1:5173`.
+- Verified API response headers now include `Access-Control-Allow-Origin: http://localhost:5173` for dashboard-origin requests.
+
+### 14. Dashboard Stats Parsing Hardening
+- Fixed dashboard stats client parsing to support backend response envelope shape (`{ success, data }`) returned by `GET /api/stats`.
+- Added normalization/defaults in `dashboard/src/api/stats.service.ts` to prevent runtime crashes from missing nested fields (`statusCounts`, `riskDistribution`).
+- Resolved frontend runtime error: `Cannot read properties of undefined (reading 'failed')` in dashboard stats rendering.
+
 ## Future Plan (Roadmap)
 
 ### Monitoring and Operations

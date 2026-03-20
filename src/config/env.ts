@@ -43,6 +43,15 @@ const envSchema = z.object({
   smtpPass: z.string().optional(),
   emailFrom: z.string().optional(),
   geminiApiKey: z.string().optional(),
+  corsOrigins: z
+    .string()
+    .default('http://localhost:5173,http://127.0.0.1:5173')
+    .transform((value) =>
+      value
+        .split(',')
+        .map((origin) => origin.trim())
+        .filter(Boolean)
+    ),
 });
 
 export type Config = z.infer<typeof envSchema>;
@@ -65,6 +74,7 @@ function loadConfig(): Config {
     smtpPass: process.env.SMTP_PASS,
     emailFrom: process.env.EMAIL_FROM,
     geminiApiKey: process.env.GEMINI_API_KEY,
+    corsOrigins: process.env.CORS_ORIGINS,
   };
 
   return envSchema.parse(env);

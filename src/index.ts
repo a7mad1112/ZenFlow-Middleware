@@ -1,4 +1,5 @@
 import 'dotenv/config';
+import cors from 'cors';
 import express, { type Express, type Request, type Response } from 'express';
 import { config } from './config/env.js';
 import { startQueue, stopQueue, healthCheckQueue } from './config/queue.js';
@@ -12,6 +13,18 @@ import { setupDashboardRoutes } from './api/routes/dashboard.routes.js';
 const app: Express = express();
 
 // Middleware
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      if (!origin || config.corsOrigins.includes(origin)) {
+        callback(null, true);
+        return;
+      }
+
+      callback(new Error(`CORS blocked for origin: ${origin}`));
+    },
+  })
+);
 app.use(express.json());
 
 // Health check endpoint

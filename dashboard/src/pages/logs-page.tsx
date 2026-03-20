@@ -131,7 +131,7 @@ export function LogsPage() {
                   <Badge variant={getStatusVariant(log.status)}>{log.status}</Badge>
                 </td>
                 <td className="px-4 py-3">
-                  <Badge variant={getRiskVariant(log.riskLevel)}>{log.riskLevel ?? 'Unknown'}</Badge>
+                  <Badge variant={getRiskVariant(log.riskLevel)}>{log.riskLevel}</Badge>
                 </td>
                 <td className="px-4 py-3">{log.attempts}</td>
                 <td className="px-4 py-3 text-zinc-400">{formatDate(log.updatedAt)}</td>

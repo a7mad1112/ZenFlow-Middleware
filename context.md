@@ -123,6 +123,27 @@
 - Improved AI analysis rendering by formatting `aiSummary` strings cleanly and parsing risk from AI text when explicit `riskLevel` is absent.
 - Risk badge in the drawer header now uses derived risk (API riskLevel fallback + AI summary parsing) to avoid unnecessary `Unknown` labels.
 
+### 17. Log Detail API Result Normalization
+- Updated backend dashboard controller to normalize `result` in both logs list and logs detail responses.
+- `GET /api/logs/:id` now always returns a JSON `result` object with stable keys:
+  - `xml`
+  - `aiSummary`
+  - `pdfInfo` (`generated`, `sizeBytes`, `path`, `error`)
+  - `raw` (original stored payload for traceability)
+- Frontend drawer now maps `pdfInfo` and displays failed-task errors in a red alert card.
+
+### 18. Frontend Contract Alignment (aiSummary, riskLevel, actions)
+- Updated `dashboard/src/services/logs.service.ts` types to consume structured controller fields directly:
+  - `riskLevel` as concrete `Low | Medium | High`
+  - `aiSummary` as top-level log field
+  - `actions` map (`xml`, `ai`, `discord`, `pdf`, `email`) for timeline rendering.
+- Logs table now uses controller `riskLevel` directly in badge text/color mapping (removed `Unknown` fallback label).
+- Log detail drawer now uses:
+  - `log.aiSummary` for AI Analysis text
+  - `log.actions` for timeline step statuses
+  - explicit red alert card when `log.status === 'failed'` and `log.error` exists.
+- Added safe compatibility normalization so older records still render, while new structured controller fields drive primary UI state.
+
 ## Future Plan (Roadmap)
 
 ### Monitoring and Operations

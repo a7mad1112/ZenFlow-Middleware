@@ -4,6 +4,75 @@ const prisma = new PrismaClient();
 
 export type RiskLevel = 'Low' | 'Medium' | 'High';
 
+type NormalizedResult = {
+  xml: string | null;
+  aiSummary: string | null;
+  pdfInfo: {
+    generated: boolean;
+    sizeBytes: number | null;
+    path: string | null;
+    error: string | null;
+  };
+  raw: unknown;
+};
+
+function normalizeResultForDashboard(result: unknown): NormalizedResult {
+  if (typeof result === 'string') {
+    return {
+      xml: result,
+      aiSummary: null,
+      pdfInfo: {
+        generated: false,
+        sizeBytes: null,
+        path: null,
+        error: null,
+      },
+      raw: result,
+    };
+  }
+
+  if (result && typeof result === 'object' && !Array.isArray(result)) {
+    const obj = result as Record<string, unknown>;
+    const pdfObj =
+      obj.pdf && typeof obj.pdf === 'object' && !Array.isArray(obj.pdf)
+        ? (obj.pdf as Record<string, unknown>)
+        : null;
+
+    const sizeBytes =
+      typeof pdfObj?.sizeBytes === 'number'
+        ? pdfObj.sizeBytes
+        : typeof pdfObj?.size === 'number'
+          ? pdfObj.size
+          : null;
+
+    const normalized: NormalizedResult = {
+      xml: typeof obj.xml === 'string' ? obj.xml : null,
+      aiSummary: typeof obj.aiSummary === 'string' ? obj.aiSummary : null,
+      pdfInfo: {
+        generated: Boolean(pdfObj?.generated || sizeBytes),
+        sizeBytes,
+        path: typeof pdfObj?.path === 'string' ? pdfObj.path : null,
+        error: typeof pdfObj?.error === 'string' ? pdfObj.error : null,
+      },
+      raw: result,
+    };
+
+    return normalized;
+  }
+
+  return {
+    xml: null,
+    aiSummary: null,
+    pdfInfo: {
+      generated: false,
+      sizeBytes: null,
+      path: null,
+      error: null,
+    },
+    raw: result,
+  };
+}
+
 function extractRiskLevelFromResult(result: unknown): RiskLevel | null {
   if (!result) {
     return null;
@@ -168,8 +237,10 @@ export async function getDashboardLogs(params: {
 
     const mapped = tasks.map((task) => {
       const taskRisk = extractRiskLevelFromResult(task.result);
+      const normalizedResult = normalizeResultForDashboard(task.result);
       return {
         ...task,
+        result: normalizedResult,
         riskLevel: taskRisk,
       };
     });
@@ -208,10 +279,14 @@ export async function getDashboardLogs(params: {
   });
 
   const filtered = tasks
-    .map((task) => ({
-      ...task,
-      riskLevel: extractRiskLevelFromResult(task.result),
-    }))
+    .map((task) => {
+      const normalizedResult = normalizeResultForDashboard(task.result);
+      return {
+        ...task,
+        result: normalizedResult,
+        riskLevel: extractRiskLevelFromResult(task.result),
+      };
+    })
     .filter((task) => task.riskLevel === riskLevel);
 
   const paged = filtered.slice(skip, skip + limit);
@@ -242,8 +317,11 @@ export async function getDashboardLogDetail(id: string): Promise<Record<string, 
 
   const riskLevel = extractRiskLevelFromResult(task.result);
 
+  const normalizedResult = normalizeResultForDashboard(task.result);
+
   return {
     ...task,
+    result: normalizedResult,
     riskLevel,
   };
 }

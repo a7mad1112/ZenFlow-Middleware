@@ -17,6 +17,18 @@ export interface TaskPayload {
   logId: string;
 }
 
+function extractRiskLevel(aiSummary: string): 'Low' | 'Medium' | 'High' {
+  const match = aiSummary.match(/Risk:\s*(Low|Medium|High)/i);
+  if (!match) {
+    return 'Low';
+  }
+
+  const normalized = match[1].toLowerCase();
+  if (normalized === 'high') return 'High';
+  if (normalized === 'medium') return 'Medium';
+  return 'Low';
+}
+
 function isDiscordEnabledForPipeline(pipeline: any): boolean {
   if (typeof pipeline?.discordEnabled === 'boolean') {
     return pipeline.discordEnabled;
@@ -215,7 +227,9 @@ async function processTask(taskData: TaskPayload): Promise<void> {
   const { pipelineId, logId, payload, webhookId } = taskData;
   const prismaAny = prisma as any;
   let result: string | null = null;
+  let resultDetails: Record<string, unknown> | null = null;
   let aiSummary = 'New Order Received';
+  let riskLevel: 'Low' | 'Medium' | 'High' = 'Low';
 
   try {
     logger.info('Processing task from queue', {
@@ -276,8 +290,29 @@ async function processTask(taskData: TaskPayload): Promise<void> {
       });
     }
 
+    riskLevel = extractRiskLevel(aiSummary);
+
     // Execute the action
     result = await executeAction(pipeline.actionType, payload);
+
+    resultDetails = {
+      actionType: pipeline.actionType,
+      aiSummary,
+      riskLevel,
+      xml: pipeline.actionType === 'CONVERTER' ? result : undefined,
+      actionOutput: pipeline.actionType !== 'CONVERTER' ? result : undefined,
+      pdf: {
+        generated: false,
+      },
+      email: {
+        attempted: false,
+        sent: false,
+      },
+      discord: {
+        attempted: false,
+        sent: false,
+      },
+    };
 
     logger.info('Action executed successfully', {
       taskId: logId,
@@ -293,12 +328,24 @@ async function processTask(taskData: TaskPayload): Promise<void> {
           taskId: logId,
           pipelineId: pipelineId,
         });
+        if (resultDetails) {
+          resultDetails.pdf = {
+            generated: true,
+            sizeBytes: pdfBuffer.length,
+          };
+        }
       } catch (pdfError) {
         logger.warn('Sending email without PDF attachment due to generation error', {
           taskId: logId,
           pipelineId: pipelineId,
           error: pdfError instanceof Error ? pdfError.message : String(pdfError),
         });
+        if (resultDetails) {
+          resultDetails.pdf = {
+            generated: false,
+            error: pdfError instanceof Error ? pdfError.message : String(pdfError),
+          };
+        }
       }
 
       const customerEmail = extractCustomerEmail(payload);
@@ -314,6 +361,14 @@ async function processTask(taskData: TaskPayload): Promise<void> {
             attachment: pdfBuffer,
             aiSummary,
           });
+          if (resultDetails) {
+            resultDetails.email = {
+              attempted: true,
+              sent: true,
+              to: customerEmail,
+              attachedPdf: Boolean(pdfBuffer),
+            };
+          }
         } catch (emailError) {
           logger.error('Order confirmation email failed', {
             taskId: logId,
@@ -321,12 +376,28 @@ async function processTask(taskData: TaskPayload): Promise<void> {
             to: customerEmail,
             error: emailError instanceof Error ? emailError.message : String(emailError),
           });
+          if (resultDetails) {
+            resultDetails.email = {
+              attempted: true,
+              sent: false,
+              to: customerEmail,
+              attachedPdf: Boolean(pdfBuffer),
+              error: emailError instanceof Error ? emailError.message : String(emailError),
+            };
+          }
         }
       } else {
         logger.info('Skipping order confirmation email: customer.email not present', {
           taskId: logId,
           pipelineId: pipelineId,
         });
+        if (resultDetails) {
+          resultDetails.email = {
+            attempted: false,
+            sent: false,
+            skippedReason: 'customer.email not present',
+          };
+        }
       }
 
       const skipDiscord = shouldSkipDiscordForRequest(payload);
@@ -337,11 +408,25 @@ async function processTask(taskData: TaskPayload): Promise<void> {
           taskId: logId,
           pipelineId: pipelineId,
         });
+        if (resultDetails) {
+          resultDetails.discord = {
+            attempted: false,
+            sent: false,
+            skippedReason: 'metadata.skipDiscord=true',
+          };
+        }
       } else if (!discordEnabled) {
         logger.info('Skipping Discord action: disabled in Pipeline settings', {
           taskId: logId,
           pipelineId: pipelineId,
         });
+        if (resultDetails) {
+          resultDetails.discord = {
+            attempted: false,
+            sent: false,
+            skippedReason: 'disabled in Pipeline settings',
+          };
+        }
       } else {
         logger.info('Forwarding converter result to Discord', {
           taskId: logId,
@@ -349,6 +434,12 @@ async function processTask(taskData: TaskPayload): Promise<void> {
         });
 
         await sendXmlToDiscord(result, aiSummary);
+        if (resultDetails) {
+          resultDetails.discord = {
+            attempted: true,
+            sent: true,
+          };
+        }
 
         logger.info('Converter result forwarded to Discord successfully', {
           taskId: logId,
@@ -363,7 +454,7 @@ async function processTask(taskData: TaskPayload): Promise<void> {
         where: { id: logId },
         data: {
           status: 'PROCESSED',
-          result: result,
+          result: resultDetails ?? result,
           processedAt: new Date(),
           updatedAt: new Date(),
         },
@@ -373,7 +464,7 @@ async function processTask(taskData: TaskPayload): Promise<void> {
         where: { id: logId },
         data: {
           status: 'completed',
-          result: result as any,
+          result: (resultDetails ?? result) as any,
           completedAt: new Date(),
           updatedAt: new Date(),
         },
@@ -401,7 +492,11 @@ async function processTask(taskData: TaskPayload): Promise<void> {
           data: {
             status: 'FAILED',
             error: error instanceof Error ? error.message : String(error),
-            ...(result !== null ? { result: result } : {}),
+            ...(resultDetails !== null
+              ? { result: resultDetails }
+              : result !== null
+                ? { result: result }
+                : {}),
             updatedAt: new Date(),
           },
         });
@@ -411,7 +506,11 @@ async function processTask(taskData: TaskPayload): Promise<void> {
           data: {
             status: 'failed',
             error: error instanceof Error ? error.message : String(error),
-            ...(result !== null ? { result: result as any } : {}),
+            ...(resultDetails !== null
+              ? { result: resultDetails as any }
+              : result !== null
+                ? { result: result as any }
+                : {}),
             updatedAt: new Date(),
           },
         });

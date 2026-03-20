@@ -7,6 +7,7 @@ import { startWorkerEngine } from './worker/engine.js';
 import { setupRoutes } from './api/routes.js';
 import { setupPipelineRoutes } from './api/routes/pipeline.routes.js';
 import { setupWebhookRoutes } from './api/routes/webhook.routes.js';
+import { setupDashboardRoutes } from './api/routes/dashboard.routes.js';
 
 const app: Express = express();
 
@@ -28,6 +29,7 @@ app.get('/health', async (_req: Request, res: Response): Promise<void> => {
 setupRoutes(app);
 setupPipelineRoutes(app);
 setupWebhookRoutes(app);
+setupDashboardRoutes(app);
 
 async function main(): Promise<void> {
   try {

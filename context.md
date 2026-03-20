@@ -60,6 +60,12 @@
 - A comprehensive feature specification has been created in `dashboard.md`.
 - Scope includes pipeline management, action configuration, conditional routing UI, live monitoring, execution drill-down, required API expansion, Docker frontend integration plan, and dark-mode product design direction.
 
+### 10. Dashboard Support APIs (Complete)
+- Implemented `GET /api/stats` for total tasks, success rate, grouped status counts, and AI risk distribution.
+- Implemented `GET /api/logs` with pagination and filtering by status, pipelineId, and riskLevel.
+- Implemented `GET /api/logs/:id` returning full task detail including payload and action outputs (XML, AI summary, PDF/email/discord execution metadata when available).
+- Worker task result payload is now persisted as structured execution details to support dashboard drill-down views.
+
 ## Future Plan (Roadmap)
 
 ### Monitoring and Operations

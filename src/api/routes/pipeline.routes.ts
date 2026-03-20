@@ -9,6 +9,7 @@ import {
   deletePipeline,
   getSubscribersByPipelineId,
 } from '../controllers/pipeline.controller.js';
+import { createWebhook, getWebhooksByPipelineId } from '../controllers/webhook.controller.js';
 import { logger } from '../../shared/logger.js';
 
 // Validation schemas
@@ -27,9 +28,15 @@ const addSubscriberSchema = z.object({
   targetUrl: z.string().url('targetUrl must be a valid URL'),
 });
 
+const createWebhookSchema = z.object({
+  eventType: z.string().min(1, 'eventType is required'),
+  url: z.string().url('url must be a valid URL'),
+});
+
 type CreatePipelineRequest = z.infer<typeof createPipelineSchema>;
 type UpdatePipelineRequest = z.infer<typeof updatePipelineSchema>;
 type AddSubscriberRequest = z.infer<typeof addSubscriberSchema>;
+type CreateWebhookRequest = z.infer<typeof createWebhookSchema>;
 
 export function setupPipelineRoutes(app: Express): void {
   /**
@@ -349,4 +356,94 @@ export function setupPipelineRoutes(app: Express): void {
       }
     }
   );
+
+  /**
+   * GET /api/pipelines/:id/webhooks
+   * Get all webhooks for a pipeline
+   */
+  app.get(
+    '/api/pipelines/:id/webhooks',
+    async (req: Request, res: Response): Promise<void> => {
+      try {
+        const { id } = req.params;
+
+        const webhooks = await getWebhooksByPipelineId(id);
+
+        logger.debug('GET /api/pipelines/:id/webhooks - Retrieved webhooks', {
+          pipeline_id: id,
+          count: webhooks.length,
+        });
+
+        res.status(200).json({
+          success: true,
+          message: `Retrieved ${webhooks.length} webhook(s)`,
+          data: webhooks,
+        });
+      } catch (error) {
+        logger.error('GET /api/pipelines/:id/webhooks failed', {
+          error: error instanceof Error ? error.message : String(error),
+          pipeline_id: req.params.id,
+        });
+
+        res.status(500).json({
+          success: false,
+          message: 'Internal server error',
+        });
+      }
+    }
+  );
+
+  /**
+   * POST /api/pipelines/:id/webhooks
+   * Create a webhook for a pipeline
+   */
+  app.post(
+    '/api/pipelines/:id/webhooks',
+    async (req: Request, res: Response): Promise<void> => {
+      try {
+        const { id } = req.params;
+        const data: CreateWebhookRequest = createWebhookSchema.parse(req.body);
+
+        const webhook = await createWebhook(id, {
+          eventType: data.eventType,
+          url: data.url,
+        });
+
+        logger.info('POST /api/pipelines/:id/webhooks - Webhook created', {
+          webhook_id: webhook.id,
+          pipeline_id: id,
+        });
+
+        res.status(201).json({
+          success: true,
+          message: 'Webhook created successfully',
+          data: webhook,
+        });
+      } catch (error) {
+        logger.error('POST /api/pipelines/:id/webhooks failed', {
+          error: error instanceof Error ? error.message : String(error),
+          pipeline_id: req.params.id,
+        });
+
+        if (error instanceof z.ZodError) {
+          res.status(400).json({
+            success: false,
+            message: 'Validation error',
+            errors: error.errors,
+          });
+        } else if (error instanceof Error && error.message.includes('not found')) {
+          res.status(404).json({
+            success: false,
+            message: 'Pipeline not found',
+          });
+        } else {
+          res.status(500).json({
+            success: false,
+            message: 'Internal server error',
+          });
+        }
+      }
+    }
+  );
+
 }

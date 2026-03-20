@@ -10,36 +10,60 @@ export interface IngestWebhookDTO {
 
 /**
  * Ingest a webhook event and queue it for processing
- * @param webhookId - The webhook ID from the URL
+ * @param id - The webhook ID or pipeline ID from the URL
  * @param data - The incoming webhook payload
  * @returns Task record with tracking ID
  */
 export async function ingestWebhook(
-  webhookId: string,
+  id: string,
   data: IngestWebhookDTO
 ): Promise<any> {
   try {
-    // Find the webhook with its pipeline
+    let webhookId: string | undefined;
+    let pipelineId: string;
+
+    // First, try to find as a webhook
     const webhook = await prisma.webhook.findUnique({
-      where: { id: webhookId },
+      where: { id },
       include: { pipeline: true },
     });
 
-    if (!webhook) {
-      logger.warn('Webhook not found', { webhookId });
-      throw new Error(`Webhook ${webhookId} not found`);
-    }
+    if (webhook) {
+      // Found as webhook
+      webhookId = webhook.id;
+      pipelineId = webhook.pipelineId;
 
-    if (!webhook.isActive) {
-      logger.warn('Webhook is inactive', { webhookId });
-      throw new Error(`Webhook ${webhookId} is inactive`);
+      if (!webhook.isActive) {
+        logger.warn('Webhook is inactive', { webhookId });
+        throw new Error(`Webhook ${webhookId} is inactive`);
+      }
+
+      logger.info('Webhook found', { webhookId, pipelineId });
+    } else {
+      // Not found as webhook, try to find as pipeline
+      const pipeline = await prisma.pipeline.findUnique({
+        where: { id },
+      });
+
+      if (!pipeline) {
+        logger.warn('Webhook or Pipeline not found', { id });
+        throw new Error(`Resource ${id} not found in Webhook or Pipeline`);
+      }
+
+      if (!pipeline.isActive) {
+        logger.warn('Pipeline is inactive', { pipelineId: id });
+        throw new Error(`Pipeline ${id} is inactive`);
+      }
+
+      pipelineId = pipeline.id;
+      logger.info('Pipeline found (ingesting directly)', { pipelineId });
     }
 
     // Create a task record with PENDING status
     const task = await prisma.task.create({
       data: {
-        pipelineId: webhook.pipelineId,
-        webhookId: webhookId,
+        pipelineId: pipelineId,
+        webhookId: webhookId || undefined,
         status: 'pending',
         payload: data.payload as any,
         attempts: 0,
@@ -47,10 +71,10 @@ export async function ingestWebhook(
       },
     });
 
-    logger.info('Task created for webhook', {
+    logger.info('Task created', {
       taskId: task.id,
       webhookId: webhookId,
-      pipelineId: webhook.pipelineId,
+      pipelineId: pipelineId,
     });
 
     // Queue the job using pg-boss
@@ -58,7 +82,7 @@ export async function ingestWebhook(
     const jobId = await queue.send(
       'task-queue',
       {
-        pipelineId: webhook.pipelineId,
+        pipelineId: pipelineId,
         webhookId: webhookId,
         payload: data.payload,
         logId: task.id,
@@ -74,6 +98,7 @@ export async function ingestWebhook(
       taskId: task.id,
       jobId: jobId,
       webhookId: webhookId,
+      pipelineId: pipelineId,
       queueName: 'task-queue',
     });
 
@@ -85,9 +110,82 @@ export async function ingestWebhook(
     };
   } catch (error) {
     logger.error('Failed to ingest webhook', {
-      webhookId: webhookId,
+      id: id,
       error: error instanceof Error ? error.message : String(error),
       stack: error instanceof Error ? error.stack : undefined,
+    });
+    throw error;
+  }
+}
+
+/**
+ * Create a webhook for a pipeline
+ * @param pipelineId - The pipeline ID
+ * @param data - Webhook data (eventType, url)
+ * @returns Created webhook
+ */
+export async function createWebhook(
+  pipelineId: string,
+  data: { eventType: string; url: string }
+): Promise<any> {
+  try {
+    // Verify pipeline exists
+    const pipeline = await prisma.pipeline.findUnique({
+      where: { id: pipelineId },
+    });
+
+    if (!pipeline) {
+      logger.warn('Pipeline not found for webhook creation', { pipelineId });
+      throw new Error(`Pipeline ${pipelineId} not found`);
+    }
+
+    // Create webhook
+    const webhook = await prisma.webhook.create({
+      data: {
+        pipelineId: pipelineId,
+        eventType: data.eventType,
+        url: data.url,
+      },
+    });
+
+    logger.info('Webhook created successfully', {
+      webhookId: webhook.id,
+      pipelineId: pipelineId,
+      eventType: data.eventType,
+    });
+
+    return webhook;
+  } catch (error) {
+    logger.error('Failed to create webhook', {
+      pipelineId: pipelineId,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    throw error;
+  }
+}
+
+/**
+ * Get all webhooks for a pipeline
+ * @param pipelineId - The pipeline ID
+ * @returns List of webhooks
+ */
+export async function getWebhooksByPipelineId(pipelineId: string): Promise<any[]> {
+  try {
+    const webhooks = await prisma.webhook.findMany({
+      where: { pipelineId },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    logger.debug('Webhooks retrieved', {
+      pipelineId: pipelineId,
+      count: webhooks.length,
+    });
+
+    return webhooks;
+  } catch (error) {
+    logger.error('Failed to retrieve webhooks', {
+      pipelineId: pipelineId,
+      error: error instanceof Error ? error.message : String(error),
     });
     throw error;
   }

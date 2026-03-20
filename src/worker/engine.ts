@@ -17,6 +17,8 @@ export interface TaskPayload {
   logId: string;
 }
 
+type SupportedAction = 'CONVERTER' | 'EMAIL' | 'DISCORD' | 'PDF' | 'AI_SUMMARIZER';
+
 function extractRiskLevel(aiSummary: string): 'Low' | 'Medium' | 'High' {
   const match = aiSummary.match(/Risk:\s*(Low|Medium|High)/i);
   if (!match) {
@@ -29,22 +31,34 @@ function extractRiskLevel(aiSummary: string): 'Low' | 'Medium' | 'High' {
   return 'Low';
 }
 
-function isDiscordEnabledForPipeline(pipeline: any): boolean {
-  if (typeof pipeline?.discordEnabled === 'boolean') {
-    return pipeline.discordEnabled;
-  }
-
+function getEnabledActionsSet(pipeline: any): Set<string> | null {
   const enabledActions = pipeline?.enabledActions;
-  if (Array.isArray(enabledActions)) {
-    return enabledActions.includes('DISCORD');
+  if (!Array.isArray(enabledActions)) {
+    return null;
   }
 
-  const configDiscordEnabled = pipeline?.config?.discordEnabled;
-  if (typeof configDiscordEnabled === 'boolean') {
-    return configDiscordEnabled;
+  return new Set(
+    enabledActions
+      .filter((action) => typeof action === 'string' && action.trim().length > 0)
+      .map((action) => action.trim().toUpperCase())
+  );
+}
+
+function isActionEnabledForPipeline(pipeline: any, action: SupportedAction): boolean {
+  const enabledActions = getEnabledActionsSet(pipeline);
+  const listedAsEnabled = enabledActions ? enabledActions.has(action) : true;
+
+  if (action === 'EMAIL') {
+    const emailFlag = typeof pipeline?.emailEnabled === 'boolean' ? pipeline.emailEnabled : true;
+    return listedAsEnabled && emailFlag;
   }
 
-  return true;
+  if (action === 'DISCORD') {
+    const discordFlag = typeof pipeline?.discordEnabled === 'boolean' ? pipeline.discordEnabled : true;
+    return listedAsEnabled && discordFlag;
+  }
+
+  return listedAsEnabled;
 }
 
 function shouldSkipDiscordForRequest(payload: Record<string, unknown>): boolean {
@@ -275,40 +289,85 @@ async function processTask(taskData: TaskPayload): Promise<void> {
       actionType: pipeline.actionType,
     });
 
-    try {
-      aiSummary = await aiService.summarizeOrder(payload);
-      logger.info('AI summary generated successfully', {
-        taskId: logId,
-        pipelineId: pipelineId,
-      });
-    } catch (aiError) {
+    const primaryActionType = pipeline.actionType as SupportedAction;
+    const primaryActionEnabled = isActionEnabledForPipeline(pipeline as any, primaryActionType);
+
+    if (!isActionEnabledForPipeline(pipeline as any, 'AI_SUMMARIZER')) {
       aiSummary = 'New Order Received';
-      logger.warn('AI summary generation failed; using fallback summary', {
+      logger.info('AI summarizer action disabled for pipeline; using fallback summary', {
         taskId: logId,
         pipelineId: pipelineId,
-        error: aiError instanceof Error ? aiError.message : String(aiError),
       });
+    } else {
+      try {
+        aiSummary = await aiService.summarizeOrder(payload);
+        logger.info('AI summary generated successfully', {
+          taskId: logId,
+          pipelineId: pipelineId,
+        });
+      } catch (aiError) {
+        aiSummary = 'New Order Received';
+        logger.warn('AI summary generation failed; using fallback summary', {
+          taskId: logId,
+          pipelineId: pipelineId,
+          error: aiError instanceof Error ? aiError.message : String(aiError),
+        });
+      }
     }
 
     riskLevel = extractRiskLevel(aiSummary);
 
-    // Execute the action
-    result = await executeAction(pipeline.actionType, payload);
+    if (!primaryActionEnabled) {
+      logger.info('Primary action is disabled for pipeline; skipping execution', {
+        taskId: logId,
+        pipelineId: pipelineId,
+        actionType: primaryActionType,
+      });
+      result = 'SKIPPED';
+    } else {
+      try {
+        result = await executeAction(primaryActionType, payload);
+      } catch (actionError) {
+        const errorMessage = actionError instanceof Error ? actionError.message : String(actionError);
+        const notificationAction = primaryActionType === 'EMAIL' || primaryActionType === 'DISCORD';
+
+        if (!notificationAction) {
+          throw actionError;
+        }
+
+        logger.error('Notification action failed but task will continue', {
+          taskId: logId,
+          pipelineId: pipelineId,
+          actionType: primaryActionType,
+          error: errorMessage,
+        });
+
+        result = 'FAILED_NON_BLOCKING';
+      }
+    }
 
     resultDetails = {
-      actionType: pipeline.actionType,
+      actionType: primaryActionType,
+      primaryAction: {
+        type: primaryActionType,
+        enabled: primaryActionEnabled,
+        status: primaryActionEnabled ? 'completed' : 'skipped',
+      },
       aiSummary,
       riskLevel,
-      xml: pipeline.actionType === 'CONVERTER' ? result : undefined,
-      actionOutput: pipeline.actionType !== 'CONVERTER' ? result : undefined,
+      xml: primaryActionType === 'CONVERTER' && result !== 'SKIPPED' ? result : undefined,
+      actionOutput: primaryActionType !== 'CONVERTER' ? result : undefined,
       pdf: {
+        status: 'skipped',
         generated: false,
       },
       email: {
+        status: 'skipped',
         attempted: false,
         sent: false,
       },
       discord: {
+        status: 'skipped',
         attempted: false,
         sent: false,
       },
@@ -316,40 +375,62 @@ async function processTask(taskData: TaskPayload): Promise<void> {
 
     logger.info('Action executed successfully', {
       taskId: logId,
-      actionType: pipeline.actionType,
+      actionType: primaryActionType,
       resultLength: result.length,
     });
 
-    if (pipeline.actionType === 'CONVERTER') {
+    if (primaryActionType === 'CONVERTER' && primaryActionEnabled && result !== null) {
       let pdfBuffer: Buffer | undefined;
-      try {
-        pdfBuffer = await generateInvoice(payload);
-        logger.info(`✅ PDF generated (size: ${pdfBuffer.length} bytes)`, {
-          taskId: logId,
-          pipelineId: pipelineId,
-        });
+      if (!isActionEnabledForPipeline(pipeline as any, 'PDF')) {
         if (resultDetails) {
           resultDetails.pdf = {
-            generated: true,
-            sizeBytes: pdfBuffer.length,
+            status: 'skipped',
+            generated: false,
+            skippedReason: 'disabled in Pipeline settings',
           };
         }
-      } catch (pdfError) {
-        logger.warn('Sending email without PDF attachment due to generation error', {
-          taskId: logId,
-          pipelineId: pipelineId,
-          error: pdfError instanceof Error ? pdfError.message : String(pdfError),
-        });
-        if (resultDetails) {
-          resultDetails.pdf = {
-            generated: false,
+      } else {
+        try {
+          pdfBuffer = await generateInvoice(payload);
+          logger.info(`✅ PDF generated (size: ${pdfBuffer.length} bytes)`, {
+            taskId: logId,
+            pipelineId: pipelineId,
+          });
+          if (resultDetails) {
+            resultDetails.pdf = {
+              status: 'success',
+              generated: true,
+              sizeBytes: pdfBuffer.length,
+            };
+          }
+        } catch (pdfError) {
+          logger.warn('Sending email without PDF attachment due to generation error', {
+            taskId: logId,
+            pipelineId: pipelineId,
             error: pdfError instanceof Error ? pdfError.message : String(pdfError),
-          };
+          });
+          if (resultDetails) {
+            resultDetails.pdf = {
+              status: 'failed',
+              generated: false,
+              error: pdfError instanceof Error ? pdfError.message : String(pdfError),
+            };
+          }
         }
       }
 
       const customerEmail = extractCustomerEmail(payload);
-      if (customerEmail) {
+      const emailEnabled = isActionEnabledForPipeline(pipeline as any, 'EMAIL');
+      if (!emailEnabled) {
+        if (resultDetails) {
+          resultDetails.email = {
+            status: 'skipped',
+            attempted: false,
+            sent: false,
+            skippedReason: 'disabled in Pipeline settings',
+          };
+        }
+      } else if (customerEmail) {
         try {
           logger.info('Sending order confirmation email', {
             taskId: logId,
@@ -363,6 +444,7 @@ async function processTask(taskData: TaskPayload): Promise<void> {
           });
           if (resultDetails) {
             resultDetails.email = {
+              status: 'success',
               attempted: true,
               sent: true,
               to: customerEmail,
@@ -378,6 +460,7 @@ async function processTask(taskData: TaskPayload): Promise<void> {
           });
           if (resultDetails) {
             resultDetails.email = {
+              status: 'failed',
               attempted: true,
               sent: false,
               to: customerEmail,
@@ -393,6 +476,7 @@ async function processTask(taskData: TaskPayload): Promise<void> {
         });
         if (resultDetails) {
           resultDetails.email = {
+            status: 'skipped',
             attempted: false,
             sent: false,
             skippedReason: 'customer.email not present',
@@ -401,7 +485,7 @@ async function processTask(taskData: TaskPayload): Promise<void> {
       }
 
       const skipDiscord = shouldSkipDiscordForRequest(payload);
-      const discordEnabled = isDiscordEnabledForPipeline(pipeline as any);
+      const discordEnabled = isActionEnabledForPipeline(pipeline as any, 'DISCORD');
 
       if (skipDiscord) {
         logger.info('Skipping Discord action: metadata.skipDiscord=true', {
@@ -410,6 +494,7 @@ async function processTask(taskData: TaskPayload): Promise<void> {
         });
         if (resultDetails) {
           resultDetails.discord = {
+            status: 'skipped',
             attempted: false,
             sent: false,
             skippedReason: 'metadata.skipDiscord=true',
@@ -422,6 +507,7 @@ async function processTask(taskData: TaskPayload): Promise<void> {
         });
         if (resultDetails) {
           resultDetails.discord = {
+            status: 'skipped',
             attempted: false,
             sent: false,
             skippedReason: 'disabled in Pipeline settings',
@@ -433,18 +519,35 @@ async function processTask(taskData: TaskPayload): Promise<void> {
           pipelineId: pipelineId,
         });
 
-        await sendXmlToDiscord(result, aiSummary);
-        if (resultDetails) {
-          resultDetails.discord = {
-            attempted: true,
-            sent: true,
-          };
-        }
+        try {
+          await sendXmlToDiscord(result, aiSummary);
+          if (resultDetails) {
+            resultDetails.discord = {
+              status: 'success',
+              attempted: true,
+              sent: true,
+            };
+          }
 
-        logger.info('Converter result forwarded to Discord successfully', {
-          taskId: logId,
-          pipelineId: pipelineId,
-        });
+          logger.info('Converter result forwarded to Discord successfully', {
+            taskId: logId,
+            pipelineId: pipelineId,
+          });
+        } catch (discordError) {
+          logger.error('Discord action failed but task will continue', {
+            taskId: logId,
+            pipelineId: pipelineId,
+            error: discordError instanceof Error ? discordError.message : String(discordError),
+          });
+          if (resultDetails) {
+            resultDetails.discord = {
+              status: 'failed',
+              attempted: true,
+              sent: false,
+              error: discordError instanceof Error ? discordError.message : String(discordError),
+            };
+          }
+        }
       }
     }
 

@@ -6,6 +6,8 @@ import {
   getPipelineById,
   addSubscriber,
   updatePipeline,
+  updatePipelineActions,
+  getPipelineHealth,
   deletePipeline,
   getSubscribersByPipelineId,
 } from '../controllers/pipeline.controller.js';
@@ -24,6 +26,14 @@ const createPipelineSchema = z.object({
 
 const updatePipelineSchema = createPipelineSchema.partial();
 
+const updatePipelineActionsSchema = z.object({
+  enabledActions: z
+    .array(z.enum(['CONVERTER', 'EMAIL', 'DISCORD', 'PDF', 'AI_SUMMARIZER']))
+    .optional(),
+  emailEnabled: z.boolean().optional(),
+  discordEnabled: z.boolean().optional(),
+});
+
 const addSubscriberSchema = z.object({
   targetUrl: z.string().url('targetUrl must be a valid URL'),
 });
@@ -37,6 +47,7 @@ type CreatePipelineRequest = z.infer<typeof createPipelineSchema>;
 type UpdatePipelineRequest = z.infer<typeof updatePipelineSchema>;
 type AddSubscriberRequest = z.infer<typeof addSubscriberSchema>;
 type CreateWebhookRequest = z.infer<typeof createWebhookSchema>;
+type UpdatePipelineActionsRequest = z.infer<typeof updatePipelineActionsSchema>;
 
 export function setupPipelineRoutes(app: Express): void {
   /**
@@ -162,6 +173,46 @@ export function setupPipelineRoutes(app: Express): void {
   });
 
   /**
+   * GET /api/pipelines/:id/health
+   * Readiness checks for notification and AI dependencies
+   */
+  app.get('/api/pipelines/:id/health', async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { id } = req.params;
+
+      const report = await getPipelineHealth(id);
+
+      if (!report) {
+        res.status(404).json({
+          success: false,
+          message: 'Pipeline not found',
+        });
+        return;
+      }
+
+      const hasFailure = report.checks.some((check) => check.status === 'failed');
+
+      res.status(hasFailure ? 503 : 200).json({
+        success: true,
+        message: hasFailure
+          ? 'Pipeline readiness report contains failing checks'
+          : 'Pipeline readiness checks passed',
+        data: report,
+      });
+    } catch (error) {
+      logger.error('GET /api/pipelines/:id/health failed', {
+        error: error instanceof Error ? error.message : String(error),
+        pipeline_id: req.params.id,
+      });
+
+      res.status(500).json({
+        success: false,
+        message: 'Internal server error',
+      });
+    }
+  });
+
+  /**
    * PUT /api/pipelines/:id
    * Update a pipeline
    */
@@ -263,6 +314,52 @@ export function setupPipelineRoutes(app: Express): void {
         res.status(409).json({
           success: false,
           message: 'Pipeline with this name already exists',
+        });
+      } else {
+        res.status(500).json({
+          success: false,
+          message: 'Internal server error',
+        });
+      }
+    }
+  });
+
+  /**
+   * PATCH /api/pipelines/:id/actions
+   * Dedicated endpoint for action toggles/flags
+   */
+  app.patch('/api/pipelines/:id/actions', async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { id } = req.params;
+      const data: UpdatePipelineActionsRequest = updatePipelineActionsSchema.parse(req.body);
+
+      const pipeline = await updatePipelineActions(id, {
+        enabledActions: data.enabledActions,
+        emailEnabled: data.emailEnabled,
+        discordEnabled: data.discordEnabled,
+      });
+
+      res.status(200).json({
+        success: true,
+        message: 'Pipeline actions updated successfully',
+        data: pipeline,
+      });
+    } catch (error) {
+      logger.error('PATCH /api/pipelines/:id/actions failed', {
+        error: error instanceof Error ? error.message : String(error),
+        pipeline_id: req.params.id,
+      });
+
+      if (error instanceof z.ZodError) {
+        res.status(400).json({
+          success: false,
+          message: 'Validation error',
+          errors: error.errors,
+        });
+      } else if (error instanceof Error && error.message.includes('not found')) {
+        res.status(404).json({
+          success: false,
+          message: 'Pipeline not found',
         });
       } else {
         res.status(500).json({

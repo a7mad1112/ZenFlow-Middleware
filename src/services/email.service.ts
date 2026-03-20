@@ -139,6 +139,11 @@ class EmailService {
       orderId: payload?.orderId ?? payload?.id,
     });
   }
+
+  async verifyConnection(): Promise<void> {
+    const transporter = this.getTransporter();
+    await transporter.verify();
+  }
 }
 
 export const emailService = new EmailService();

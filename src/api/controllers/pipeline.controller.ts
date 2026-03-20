@@ -14,6 +14,27 @@ export interface AddSubscriberDTO {
   targetUrl: string;
 }
 
+export interface UpdatePipelineActionsDTO {
+  enabledActions?: string[];
+  emailEnabled?: boolean;
+  discordEnabled?: boolean;
+}
+
+export type ReadinessStatus = 'ready' | 'failed' | 'disabled' | 'unknown';
+
+export interface ActionReadinessItem {
+  action: string;
+  enabled: boolean;
+  status: ReadinessStatus;
+  details: string;
+}
+
+export interface PipelineHealthReport {
+  pipelineId: string;
+  generatedAt: string;
+  checks: ActionReadinessItem[];
+}
+
 /**
  * Create a new pipeline
  */
@@ -199,6 +220,188 @@ export async function updatePipeline(
     });
     throw error;
   }
+}
+
+/**
+ * Update pipeline action toggles only
+ */
+export async function updatePipelineActions(
+  pipelineId: string,
+  data: UpdatePipelineActionsDTO
+): Promise<any> {
+  try {
+    const updateData: Record<string, unknown> = {};
+
+    if (data.enabledActions !== undefined) {
+      const normalized = data.enabledActions
+        .filter((action) => typeof action === 'string' && action.trim().length > 0)
+        .map((action) => action.trim().toUpperCase());
+
+      updateData.enabledActions = Array.from(new Set(normalized));
+    }
+
+    if (data.emailEnabled !== undefined) {
+      updateData.emailEnabled = data.emailEnabled;
+    }
+
+    if (data.discordEnabled !== undefined) {
+      updateData.discordEnabled = data.discordEnabled;
+    }
+
+    const pipeline = await prisma.pipeline.update({
+      where: { id: pipelineId },
+      data: updateData,
+    });
+
+    logger.info('Pipeline actions updated successfully', {
+      pipeline_id: pipelineId,
+      enabledActions: pipeline.enabledActions,
+      emailEnabled: pipeline.emailEnabled,
+      discordEnabled: pipeline.discordEnabled,
+    });
+
+    return pipeline;
+  } catch (error) {
+    logger.error('Failed to update pipeline actions', {
+      error: error instanceof Error ? error.message : String(error),
+      pipeline_id: pipelineId,
+    });
+    throw error;
+  }
+}
+
+/**
+ * Build per-action readiness checks for a pipeline
+ */
+export async function getPipelineHealth(pipelineId: string): Promise<PipelineHealthReport | null> {
+  const pipeline = await prisma.pipeline.findUnique({
+    where: { id: pipelineId },
+  });
+
+  if (!pipeline) {
+    return null;
+  }
+
+  const enabledActions = new Set((pipeline.enabledActions ?? []).map((action) => action.toUpperCase()));
+  const checks: ActionReadinessItem[] = [];
+
+  const converterEnabled = enabledActions.has('CONVERTER');
+  checks.push({
+    action: 'CONVERTER',
+    enabled: converterEnabled,
+    status: converterEnabled ? 'ready' : 'disabled',
+    details: converterEnabled
+      ? 'Converter action is enabled and handled internally.'
+      : 'Disabled by pipeline flags (enabledActions).',
+  });
+
+  const pdfEnabled = enabledActions.has('PDF');
+  checks.push({
+    action: 'PDF',
+    enabled: pdfEnabled,
+    status: pdfEnabled ? 'ready' : 'disabled',
+    details: pdfEnabled
+      ? 'PDF action is enabled and generated internally.'
+      : 'Disabled by pipeline flags (enabledActions).',
+  });
+
+  const discordActionEnabled = pipeline.discordEnabled && enabledActions.has('DISCORD');
+  if (!discordActionEnabled) {
+    checks.push({
+      action: 'DISCORD',
+      enabled: false,
+      status: 'disabled',
+      details: 'Disabled by pipeline flags (enabledActions/discordEnabled).',
+    });
+  } else {
+    const url = process.env.DISCORD_WEBHOOK_URL;
+    if (!url || url.trim() === '') {
+      checks.push({
+        action: 'DISCORD',
+        enabled: true,
+        status: 'failed',
+        details: 'DISCORD_WEBHOOK_URL is missing.',
+      });
+    } else {
+      try {
+        const response = await fetch(url, { method: 'GET' });
+        checks.push({
+          action: 'DISCORD',
+          enabled: true,
+          status: response.ok ? 'ready' : 'failed',
+          details: response.ok
+            ? 'Discord webhook is reachable.'
+            : `Discord webhook returned HTTP ${response.status}.`,
+        });
+      } catch (error) {
+        checks.push({
+          action: 'DISCORD',
+          enabled: true,
+          status: 'failed',
+          details: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
+  }
+
+  const emailActionEnabled = pipeline.emailEnabled && enabledActions.has('EMAIL');
+  if (!emailActionEnabled) {
+    checks.push({
+      action: 'EMAIL',
+      enabled: false,
+      status: 'disabled',
+      details: 'Disabled by pipeline flags (enabledActions/emailEnabled).',
+    });
+  } else {
+    try {
+      const transporter = (await import('../../services/email.service.js')).emailService;
+      await transporter.verifyConnection();
+      checks.push({
+        action: 'EMAIL',
+        enabled: true,
+        status: 'ready',
+        details: 'SMTP transporter verify() succeeded.',
+      });
+    } catch (error) {
+      checks.push({
+        action: 'EMAIL',
+        enabled: true,
+        status: 'failed',
+        details: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
+  const aiActionEnabled = enabledActions.has('AI_SUMMARIZER');
+  const geminiApiKey = process.env.GEMINI_API_KEY;
+  if (!aiActionEnabled) {
+    checks.push({
+      action: 'AI_SUMMARIZER',
+      enabled: false,
+      status: 'disabled',
+      details: 'Disabled by pipeline flags (enabledActions).',
+    });
+  } else if (!geminiApiKey || geminiApiKey.trim() === '') {
+    checks.push({
+      action: 'AI_SUMMARIZER',
+      enabled: true,
+      status: 'failed',
+      details: 'GEMINI_API_KEY is missing.',
+    });
+  } else {
+    checks.push({
+      action: 'AI_SUMMARIZER',
+      enabled: true,
+      status: 'ready',
+      details: 'Gemini API key is present.',
+    });
+  }
+
+  return {
+    pipelineId,
+    generatedAt: new Date().toISOString(),
+    checks,
+  };
 }
 
 /**

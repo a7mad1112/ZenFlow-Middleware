@@ -180,6 +180,21 @@
 - Added `RiskAnalysis` as a responsive `BarChart` with semantic risk colors, subtle dark gridlines, and readable axis/legend styling.
 - Placed both charts in a responsive 2-column grid below existing stats cards to create a visual command center layout.
 
+### 22. Pipeline Health + Worker Isolation Hardening
+- Added `GET /api/pipelines/:id/health` to generate a pipeline readiness report with per-action checks:
+  - `DISCORD`: validates webhook URL presence and attempts reachability check.
+  - `EMAIL`: performs SMTP readiness via Nodemailer `verify()`.
+  - `AI_SUMMARIZER`: verifies Gemini API key presence.
+- Added `PATCH /api/pipelines/:id/actions` dedicated endpoint to cleanly toggle:
+  - `enabledActions`
+  - `emailEnabled`
+  - `discordEnabled`
+- Hardened worker action execution in `src/worker/engine.ts`:
+  - strict action gating now enforces `enabledActions` plus `emailEnabled` / `discordEnabled` before execution.
+  - notification channel isolation is enforced: Discord/Email failures are captured in result metadata and do not fail the full task.
+  - Discord send failures are now non-blocking in converter workflow and stored as structured failure details (`status`, `error`).
+  - AI summary generation now respects `enabledActions` and falls back safely when disabled or unavailable.
+
 ## Future Plan (Roadmap)
 
 ### Monitoring and Operations

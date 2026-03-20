@@ -96,6 +96,22 @@
 - Added normalization/defaults in `dashboard/src/api/stats.service.ts` to prevent runtime crashes from missing nested fields (`statusCounts`, `riskDistribution`).
 - Resolved frontend runtime error: `Cannot read properties of undefined (reading 'failed')` in dashboard stats rendering.
 
+### 15. Interactive Logs Monitoring Table (Dashboard)
+- Implemented frontend logs API integration in `dashboard/src/services/logs.service.ts` with:
+  - `getLogs(params)` for `GET /api/logs`
+  - `getLogById(id)` for `GET /api/logs/:id`
+  - response normalization for status and risk fields.
+- Replaced logs page scaffold with an interactive monitoring table in `dashboard/src/pages/logs-page.tsx`:
+  - professional dark Tailwind table for live logs
+  - status badges (success/failed/pending color mapping)
+  - risk badges based on AI risk level.
+- Added side drawer detail view on row click:
+  - fetches full log details by ID
+  - renders formatted JSON payload
+  - renders action timeline (XML Created -> AI Analyzed -> PDF Generated -> Email Sent)
+  - shows AI summary and PDF status summary.
+- Added live update behavior with 5-second polling plus manual Refresh button for near-real-time monitoring.
+
 ## Future Plan (Roadmap)
 
 ### Monitoring and Operations

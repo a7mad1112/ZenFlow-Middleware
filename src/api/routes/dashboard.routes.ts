@@ -11,7 +11,7 @@ import { logger } from '../../shared/logger.js';
 
 const logsQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
-  limit: z.coerce.number().int().min(1).max(100).default(20),
+  limit: z.coerce.number().int().min(1).max(200).default(50),
   status: z.string().optional(),
   pipelineId: z.string().optional(),
   riskLevel: z.enum(['Low', 'Medium', 'High']).optional(),

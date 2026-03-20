@@ -1,5 +1,8 @@
 import { apiClient } from '../api/client';
 
+const DEFAULT_LOGS_LIMIT = 50;
+const MAX_LOGS_LIMIT = 200;
+
 export type LogStatus = 'pending' | 'processing' | 'completed' | 'failed';
 export type RiskLevel = 'Low' | 'Medium' | 'High';
 export type ActionState = 'success' | 'failed' | 'pending' | 'skipped';
@@ -241,10 +244,13 @@ function normalizeLogDetail(item: Partial<LogDetail>): LogDetail {
 }
 
 export async function getLogs(params: LogsQueryParams = {}): Promise<LogsResponse> {
+  const requestedLimit = params.limit ?? DEFAULT_LOGS_LIMIT;
+  const safeLimit = Math.max(1, Math.min(requestedLimit, MAX_LOGS_LIMIT));
+
   const response = await apiClient.get<ApiEnvelope<LogListItem[]>>('/api/logs', {
     params: {
       page: params.page ?? 1,
-      limit: params.limit ?? 30,
+      limit: safeLimit,
       ...(params.status ? { status: params.status } : {}),
       ...(params.pipelineId ? { pipelineId: params.pipelineId } : {}),
       ...(params.riskLevel ? { riskLevel: params.riskLevel } : {}),

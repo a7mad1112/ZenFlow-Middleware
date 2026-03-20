@@ -18,6 +18,7 @@ export interface TaskPayload {
 }
 
 type SupportedAction = 'CONVERTER' | 'EMAIL' | 'DISCORD' | 'PDF' | 'AI_SUMMARIZER';
+type MetadataSkipKey = 'skipDiscord' | 'skipEmail' | 'skipAI' | 'skipPDF';
 
 function extractRiskLevel(aiSummary: string): 'Low' | 'Medium' | 'High' {
   const match = aiSummary.match(/Risk:\s*(Low|Medium|High)/i);
@@ -61,13 +62,29 @@ function isActionEnabledForPipeline(pipeline: any, action: SupportedAction): boo
   return listedAsEnabled;
 }
 
-function shouldSkipDiscordForRequest(payload: Record<string, unknown>): boolean {
+function getRequestMetadata(payload: Record<string, unknown>): Record<string, unknown> {
   const metadata = payload.metadata;
   if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) {
-    return false;
+    return {};
   }
 
-  return (metadata as { skipDiscord?: unknown }).skipDiscord === true;
+  return metadata as Record<string, unknown>;
+}
+
+function hasMetadataSkipFlag(payload: Record<string, unknown>, key: MetadataSkipKey): boolean {
+  const metadata = getRequestMetadata(payload);
+  return metadata[key] === true;
+}
+
+function shouldSkipActionForRequest(
+  payload: Record<string, unknown>,
+  action: SupportedAction
+): boolean {
+  if (action === 'DISCORD') return hasMetadataSkipFlag(payload, 'skipDiscord');
+  if (action === 'EMAIL') return hasMetadataSkipFlag(payload, 'skipEmail');
+  if (action === 'AI_SUMMARIZER') return hasMetadataSkipFlag(payload, 'skipAI');
+  if (action === 'PDF') return hasMetadataSkipFlag(payload, 'skipPDF');
+  return false;
 }
 
 function extractCustomerEmail(payload: Record<string, unknown>): string | null {
@@ -290,13 +307,24 @@ async function processTask(taskData: TaskPayload): Promise<void> {
     });
 
     const primaryActionType = pipeline.actionType as SupportedAction;
-    const primaryActionEnabled = isActionEnabledForPipeline(pipeline as any, primaryActionType);
+    const primaryActionEnabledByPipeline = isActionEnabledForPipeline(
+      pipeline as any,
+      primaryActionType
+    );
+    const primaryActionSkippedByMetadata =
+      primaryActionEnabledByPipeline && shouldSkipActionForRequest(payload, primaryActionType);
+    const primaryActionEnabled = primaryActionEnabledByPipeline && !primaryActionSkippedByMetadata;
 
-    if (!isActionEnabledForPipeline(pipeline as any, 'AI_SUMMARIZER')) {
+    const aiEnabledByPipeline = isActionEnabledForPipeline(pipeline as any, 'AI_SUMMARIZER');
+    const aiSkippedByMetadata = aiEnabledByPipeline && shouldSkipActionForRequest(payload, 'AI_SUMMARIZER');
+    const aiEnabledForRequest = aiEnabledByPipeline && !aiSkippedByMetadata;
+
+    if (!aiEnabledForRequest) {
       aiSummary = 'New Order Received';
-      logger.info('AI summarizer action disabled for pipeline; using fallback summary', {
+      logger.info('AI summarizer skipped; using fallback summary', {
         taskId: logId,
         pipelineId: pipelineId,
+        reason: aiEnabledByPipeline ? 'metadata.skipAI=true' : 'disabled in Pipeline settings',
       });
     } else {
       try {
@@ -322,6 +350,9 @@ async function processTask(taskData: TaskPayload): Promise<void> {
         taskId: logId,
         pipelineId: pipelineId,
         actionType: primaryActionType,
+        reason: primaryActionSkippedByMetadata
+          ? `metadata skip flag for ${primaryActionType}`
+          : 'disabled in Pipeline settings',
       });
       result = 'SKIPPED';
     } else {
@@ -352,6 +383,11 @@ async function processTask(taskData: TaskPayload): Promise<void> {
         type: primaryActionType,
         enabled: primaryActionEnabled,
         status: primaryActionEnabled ? 'completed' : 'skipped',
+        skippedReason: !primaryActionEnabled
+          ? primaryActionSkippedByMetadata
+            ? 'metadata skip flag set for this action'
+            : 'disabled in Pipeline settings'
+          : undefined,
       },
       aiSummary,
       riskLevel,
@@ -381,12 +417,17 @@ async function processTask(taskData: TaskPayload): Promise<void> {
 
     if (primaryActionType === 'CONVERTER' && primaryActionEnabled && result !== null) {
       let pdfBuffer: Buffer | undefined;
-      if (!isActionEnabledForPipeline(pipeline as any, 'PDF')) {
+      const pdfEnabledByPipeline = isActionEnabledForPipeline(pipeline as any, 'PDF');
+      const pdfSkippedByMetadata = pdfEnabledByPipeline && shouldSkipActionForRequest(payload, 'PDF');
+
+      if (!pdfEnabledByPipeline || pdfSkippedByMetadata) {
         if (resultDetails) {
           resultDetails.pdf = {
             status: 'skipped',
             generated: false,
-            skippedReason: 'disabled in Pipeline settings',
+            skippedReason: pdfSkippedByMetadata
+              ? 'metadata.skipPDF=true'
+              : 'disabled in Pipeline settings',
           };
         }
       } else {
@@ -420,14 +461,20 @@ async function processTask(taskData: TaskPayload): Promise<void> {
       }
 
       const customerEmail = extractCustomerEmail(payload);
-      const emailEnabled = isActionEnabledForPipeline(pipeline as any, 'EMAIL');
+      const emailEnabledByPipeline = isActionEnabledForPipeline(pipeline as any, 'EMAIL');
+      const emailSkippedByMetadata =
+        emailEnabledByPipeline && shouldSkipActionForRequest(payload, 'EMAIL');
+      const emailEnabled = emailEnabledByPipeline && !emailSkippedByMetadata;
+
       if (!emailEnabled) {
         if (resultDetails) {
           resultDetails.email = {
             status: 'skipped',
             attempted: false,
             sent: false,
-            skippedReason: 'disabled in Pipeline settings',
+            skippedReason: emailSkippedByMetadata
+              ? 'metadata.skipEmail=true'
+              : 'disabled in Pipeline settings',
           };
         }
       } else if (customerEmail) {
@@ -484,7 +531,7 @@ async function processTask(taskData: TaskPayload): Promise<void> {
         }
       }
 
-      const skipDiscord = shouldSkipDiscordForRequest(payload);
+      const skipDiscord = shouldSkipActionForRequest(payload, 'DISCORD');
       const discordEnabled = isActionEnabledForPipeline(pipeline as any, 'DISCORD');
 
       if (skipDiscord) {

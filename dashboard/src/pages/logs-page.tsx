@@ -9,6 +9,7 @@ import { getLogById, getLogs, type LogDetail, type LogListItem } from '../servic
 type LoadState = 'idle' | 'loading' | 'success' | 'error';
 type StatusFilter = 'all' | 'completed' | 'failed' | 'pending';
 type RiskFilter = 'all' | 'High' | 'Medium' | 'Low';
+const LOGS_POLL_LIMIT = 100;
 
 function formatDate(value: string): string {
   const date = new Date(value);
@@ -67,7 +68,7 @@ export function LogsPage() {
   const fetchLogs = useCallback(async () => {
     setState((prev) => (prev === 'success' ? 'success' : 'loading'));
     try {
-      const response = await getLogs({ page: 1, limit: 200 });
+      const response = await getLogs({ page: 1, limit: LOGS_POLL_LIMIT });
       setLogs(response.data);
       setState('success');
     } catch {

@@ -209,6 +209,35 @@
 - Added modal-level `Action Preview` block before create/save submission.
 - Updated frontend pipeline toggle API integration in `dashboard/src/services/pipelines.service.ts` to call dedicated backend endpoint: `PATCH /api/pipelines/:id/actions`.
 
+### 24. Advanced Worker Routing + Production Dashboard Container
+- Enhanced worker routing in `src/worker/engine.ts` to support request-level metadata overrides:
+  - `metadata.skipEmail`
+  - `metadata.skipAI`
+  - `metadata.skipPDF`
+  - (existing) `metadata.skipDiscord`
+- Routing behavior now follows strict precedence:
+  - pipeline action gate (`enabledActions`, `emailEnabled`, `discordEnabled`) is evaluated first
+  - metadata skip flags only apply when the action is otherwise enabled by pipeline settings
+  - skip reasons are recorded in structured task result metadata for observability.
+- Converted `dashboard/Dockerfile` to a multi-stage production image:
+  - Stage 1: `node:18-alpine` build (`npm install`, `npm run build`)
+  - Stage 2: `nginx:stable-alpine` runtime serving static `dist` assets.
+- Added `dashboard/nginx.conf` with SPA fallback (`try_files ... /index.html`) for React Router paths.
+- Updated `docker-compose.yml` dashboard service for production behavior:
+  - build arg `VITE_API_BASE_URL`
+  - published port `5173:80` (Nginx runtime)
+  - removed dev-only Vite runtime environment usage.
+
+### 25. Logs Pagination Limit Sync (400 Bad Request Fix)
+- Resolved dashboard logs 400 failures caused by query limit mismatch between frontend and backend validation.
+- Updated frontend logs client in `dashboard/src/services/logs.service.ts`:
+  - default limit set to `50`
+  - hard clamp added so requests never exceed `200`.
+- Updated logs polling call in `dashboard/src/pages/logs-page.tsx` to request bounded page size (`100`) instead of oversized value.
+- Updated backend validation in `src/api/routes/dashboard.routes.ts`:
+  - `limit` max increased from `100` to `200`
+  - default increased from `20` to `50`.
+
 ## Future Plan (Roadmap)
 
 ### Monitoring and Operations

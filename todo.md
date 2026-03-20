@@ -12,8 +12,8 @@
 - [x] Add "Action Preview" (Visual flow) before saving pipeline changes.
 
 ## Logic & Reliability
-- [ ] Implement `skipEmail` and future `skipAI` / `skipPDF` flags in the Worker engine.
+- [x] Implement `skipEmail` and future `skipAI` / `skipPDF` flags in the Worker engine.
 - [x] Implement Worker-level check for `emailEnabled` and `enabledActions` (Strict enforcement).
 
 ## DevOps
-- [ ] Convert Frontend Dockerfile to Multi-stage (Build with Node -> Serve with Nginx).
+- [x] Convert Frontend Dockerfile to Multi-stage (Build with Node -> Serve with Nginx).

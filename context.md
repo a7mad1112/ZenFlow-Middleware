@@ -56,6 +56,10 @@
 - On AI errors (rate limits or API failure), worker falls back to `New Order Received` without stopping pipeline execution.
 - Advanced Fraud and Heuristic Analysis is implemented in the Gemini system instruction, including card-testing detection, VIP verification thresholds, anonymous/fake identity checks, sandbox order identification, and price tampering checks.
 
+### 9. Dashboard Blueprint (Planning Complete)
+- A comprehensive feature specification has been created in `dashboard.md`.
+- Scope includes pipeline management, action configuration, conditional routing UI, live monitoring, execution drill-down, required API expansion, Docker frontend integration plan, and dark-mode product design direction.
+
 ## Future Plan (Roadmap)
 
 ### Monitoring and Operations

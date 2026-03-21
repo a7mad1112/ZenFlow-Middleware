@@ -4,6 +4,9 @@ import { config } from '../config/env.js';
 class AIService {
   private client: GoogleGenerativeAI | null = null;
 
+  private readonly opsAssistantSystemPrompt =
+    'You are the ZenFlow Ops Assistant. Use the provided log context to answer user questions. Be concise and technical.';
+
   private getClient(): GoogleGenerativeAI {
     if (this.client) {
       return this.client;
@@ -38,6 +41,35 @@ class AIService {
 
     if (!text) {
       throw new Error('Gemini returned an empty summary');
+    }
+
+    return text;
+  }
+
+  async answerOpsQuestion(params: {
+    question: string;
+    context: unknown;
+  }): Promise<string> {
+    const model = this.getClient().getGenerativeModel({
+      model: 'gemini-2.5-flash',
+      systemInstruction: this.opsAssistantSystemPrompt,
+    });
+
+    const prompt = [
+      'Context JSON:',
+      JSON.stringify(params.context, null, 2),
+      '',
+      'User question:',
+      params.question,
+      '',
+      'Answer with concrete observations from the context.',
+    ].join('\n');
+
+    const response = await model.generateContent(prompt);
+    const text = response.response.text().trim();
+
+    if (!text) {
+      throw new Error('Gemini returned an empty chat response');
     }
 
     return text;

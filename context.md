@@ -1,5 +1,11 @@
 # Project Context (Single Source of Truth)
 
+## Current Status
+- Platform Stage: Intelligent Operations Platform
+- Delivery State: Feature-complete for current scope
+- Product Readiness: 100% of dashboard.md requirements implemented
+- Primary Capability: End-to-end webhook automation with AI-assisted operations diagnostics (RAG chat over live system context)
+
 ## Current Progress
 
 ### 1. Ingestion API (Webhooks / Pipelines)
@@ -56,9 +62,9 @@
 - On AI errors (rate limits or API failure), worker falls back to `New Order Received` without stopping pipeline execution.
 - Advanced Fraud and Heuristic Analysis is implemented in the Gemini system instruction, including card-testing detection, VIP verification thresholds, anonymous/fake identity checks, sandbox order identification, and price tampering checks.
 
-### 9. Dashboard Blueprint (Planning Complete)
-- A comprehensive feature specification has been created in `dashboard.md`.
-- Scope includes pipeline management, action configuration, conditional routing UI, live monitoring, execution drill-down, required API expansion, Docker frontend integration plan, and dark-mode product design direction.
+### 9. Dashboard Blueprint (Completed and Delivered)
+- The full specification in `dashboard.md` has been fully implemented.
+- Delivered scope includes pipeline management, action configuration, conditional routing UI, live monitoring, execution drill-down, required API expansion, Docker frontend integration, and dark-mode design system.
 
 ### 10. Dashboard Support APIs (Complete)
 - Implemented `GET /api/stats` for total tasks, success rate, grouped status counts, and AI risk distribution.
@@ -74,15 +80,12 @@
 - Implemented Axios client at `dashboard/src/api/client.ts` using `import.meta.env.VITE_API_BASE_URL`.
 - Added initial dashboard UI with sidebar + navbar and a Stats Overview page that fetches data from `GET /api/stats`.
 
-### 12. Dashboard Dockerization (Development)
-- Added `dashboard/Dockerfile` for development using `node:18-alpine`, npm install workflow, Vite dev server, and port `5173` exposure.
-- Updated root `docker-compose.yml` with a new `dashboard` service:
-  - Build context `./dashboard`
-  - Port mapping `5173:5173`
-  - Environment variable `VITE_API_BASE_URL=http://localhost:3000`
-  - Dependency on backend `app` service
-- Migrated dashboard Vite config to `dashboard/vite.config.ts` and added Docker-friendly dev server settings (`host`, HMR host/port, and polling-based file watch).
-- Pinned dashboard toolchain to Node 18-compatible Vite versions to match the requested container base image while preserving development HMR behavior.
+### 12. Dashboard Dockerization (Complete)
+- Frontend containerization is production-ready using a multi-stage Docker build:
+  - Build stage: Node compiles the Vite app.
+  - Runtime stage: Nginx serves static assets with SPA fallback.
+- Docker Compose integration is complete with the dashboard service connected to backend APIs.
+- Frontend routing works in container runtime via Nginx `try_files` SPA strategy.
 
 ### 13. Backend CORS Support (Dashboard Integration)
 - Added Express CORS middleware in `src/index.ts` with origin validation against configured allowlist.
@@ -228,6 +231,24 @@
   - published port `5173:80` (Nginx runtime)
   - removed dev-only Vite runtime environment usage.
 
+### 26. AI Chatbot (RAG System) (Complete)
+- Implemented backend snapshot aggregation service at `src/services/ai-assistant.service.ts`.
+- Implemented chat API endpoint `POST /api/ai/chat` at `src/api/routes/ai.routes.ts`.
+- Gemini model integration now supports ops chat responses using Gemini 2.5 Flash and system-context prompting.
+- Implemented floating dashboard chat widget at `dashboard/src/components/chat/ChatWidget.tsx`.
+- Chat UX includes:
+  - conversation history
+  - input + send action
+  - quick questions:
+    - Why did my last task fail?
+    - System Health?
+- Frontend-to-backend integration is complete through `dashboard/src/services/ai-chat.service.ts`.
+
+### 27. Multi-stage Docker (DevOps) (Complete)
+- Backend Dockerfile is multi-stage (builder + production runtime) with Prisma client generation and non-root execution.
+- Dashboard Dockerfile is multi-stage (build + nginx runtime) with production static asset serving.
+- Container strategy now supports production deployment with smaller runtime images and clean separation of build/runtime concerns.
+
 ### 25. Logs Pagination Limit Sync (400 Bad Request Fix)
 - Resolved dashboard logs 400 failures caused by query limit mismatch between frontend and backend validation.
 - Updated frontend logs client in `dashboard/src/services/logs.service.ts`:
@@ -238,11 +259,30 @@
   - `limit` max increased from `100` to `200`
   - default increased from `20` to `50`.
 
-## Future Plan (Roadmap)
+## Architecture Flow (Current)
+- Webhook Logs -> RAG Snapshot Service -> Gemini 2.5 Flash -> Dashboard Chat Widget
 
-### Monitoring and Operations
-- Build dashboard/API views for operational tracking.
-- Expose failed vs completed task metrics, retries, and action-level error summaries.
+## Milestones
+1. Backend Automation Platform: Complete
+2. Worker Orchestration and Action Pipeline: Complete
+3. Observability APIs and Logs Drill-down: Complete
+4. Dashboard UI/UX and Monitoring Control Plane: Complete
+5. AI Ops-Assistant (RAG Chat over Live Context): Complete
+6. DevOps Containerization (Multi-stage Backend + Frontend): Complete
+7. Dashboard Specification Coverage (`dashboard.md`): 100% Complete
+
+## Next Steps (Deployment and Maintenance)
+
+### Deployment
+- Finalize production environment variables (Gemini, SMTP, Discord, DB, CORS) per environment tier.
+- Enable CI/CD pipeline for automated build, test, image publish, and release deployment.
+- Add reverse-proxy/TLS routing strategy for dashboard and API in production.
+
+### Maintenance
+- Define SLOs/SLIs for API latency, worker throughput, and failure rates.
+- Add operational runbooks for queue incidents, third-party outages, and retry storms.
+- Implement periodic dependency/security patching and image refresh cadence.
+- Add cost and token-usage monitoring for Gemini chat usage.
 
 ## Instructions for Future Turns
 > From now on, at the end of every successful task, you must update this context.md file to reflect the new state of the project.

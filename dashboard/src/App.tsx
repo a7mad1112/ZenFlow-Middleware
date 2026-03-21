@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { Navbar } from './components/layout/navbar';
 import { Sidebar } from './components/layout/sidebar';
+import { ChatWidget } from './components/chat/ChatWidget';
 import { DashboardPage } from './pages/dashboard-page';
 import { LogsPage } from './pages/logs-page';
 import { PipelinesPage } from './pages/pipelines-page';
@@ -22,6 +23,7 @@ function App() {
           </main>
         </div>
       </div>
+      <ChatWidget />
     </div>
   );
 }

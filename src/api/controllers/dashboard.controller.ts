@@ -3,6 +3,7 @@ import { PrismaClient, type Prisma } from '@prisma/client';
 const prisma = new PrismaClient();
 
 export type RiskLevel = 'Low' | 'Medium' | 'High';
+export type TaskOrigin = 'MANUAL' | 'WEBHOOK';
 
 type NormalizedResult = {
   xml: string | null;
@@ -232,6 +233,31 @@ function extractRiskLevelFromResult(result: unknown): RiskLevel | null {
   return null;
 }
 
+function extractTaskOrigin(result: unknown, payload: unknown): TaskOrigin {
+  if (result && typeof result === 'object' && !Array.isArray(result)) {
+    const obj = result as Record<string, unknown>;
+    if (typeof obj.origin === 'string' && obj.origin.trim() !== '') {
+      const normalized = obj.origin.trim().toUpperCase();
+      if (normalized === 'MANUAL') return 'MANUAL';
+      if (normalized === 'WEBHOOK') return 'WEBHOOK';
+    }
+  }
+
+  if (payload && typeof payload === 'object' && !Array.isArray(payload)) {
+    const payloadObj = payload as Record<string, unknown>;
+    if (payloadObj.metadata && typeof payloadObj.metadata === 'object' && !Array.isArray(payloadObj.metadata)) {
+      const meta = payloadObj.metadata as Record<string, unknown>;
+      if (typeof meta.origin === 'string' && meta.origin.trim() !== '') {
+        const normalized = meta.origin.trim().toUpperCase();
+        if (normalized === 'MANUAL') return 'MANUAL';
+        if (normalized === 'WEBHOOK') return 'WEBHOOK';
+      }
+    }
+  }
+
+  return 'WEBHOOK';
+}
+
 export async function getDashboardStats(): Promise<{
   totalTasks: number;
   successRate: number;
@@ -363,6 +389,7 @@ export async function getDashboardLogs(params: {
         result: normalizedResult,
         aiSummary: normalizedResult.aiSummary,
         actions: normalizedResult.actions,
+        origin: extractTaskOrigin(task.result, task.payload),
         riskLevel: taskRisk,
       };
     });
@@ -408,6 +435,7 @@ export async function getDashboardLogs(params: {
         result: normalizedResult,
         aiSummary: normalizedResult.aiSummary,
         actions: normalizedResult.actions,
+        origin: extractTaskOrigin(task.result, task.payload),
         riskLevel: extractRiskLevelFromResult(task.result),
       };
     })
@@ -448,6 +476,7 @@ export async function getDashboardLogDetail(id: string): Promise<Record<string, 
     result: normalizedResult,
     aiSummary: normalizedResult.aiSummary,
     actions: normalizedResult.actions,
+    origin: extractTaskOrigin(task.result, task.payload),
     riskLevel,
   };
 }

@@ -6,6 +6,7 @@ const MAX_LOGS_LIMIT = 200;
 export type LogStatus = 'pending' | 'processing' | 'completed' | 'failed';
 export type RiskLevel = 'Low' | 'Medium' | 'High';
 export type ActionState = 'success' | 'failed' | 'pending' | 'skipped';
+export type LogOrigin = 'MANUAL' | 'WEBHOOK';
 
 export interface LogActions {
   xml: ActionState;
@@ -18,6 +19,7 @@ export interface LogActions {
 export interface LogListItem {
   id: string;
   status: LogStatus;
+  origin: LogOrigin;
   attempts: number;
   createdAt: string;
   updatedAt: string;
@@ -56,6 +58,7 @@ export interface LogsResponse {
 export interface LogDetail {
   id: string;
   status: LogStatus;
+  origin: LogOrigin;
   attempts: number;
   error?: string | null;
   createdAt: string;
@@ -140,6 +143,19 @@ function normalizeActionState(value: unknown): ActionState {
   return 'pending';
 }
 
+function normalizeOrigin(value: unknown): LogOrigin {
+  if (typeof value !== 'string') {
+    return 'WEBHOOK';
+  }
+
+  const normalized = value.trim().toUpperCase();
+  if (normalized === 'MANUAL') {
+    return 'MANUAL';
+  }
+
+  return 'WEBHOOK';
+}
+
 function buildDefaultActions(status: LogStatus): LogActions {
   if (status === 'failed') {
     return {
@@ -217,6 +233,7 @@ function normalizeLogListItem(item: Partial<LogListItem>): LogListItem {
   return {
     id: String(item.id ?? ''),
     status,
+    origin: normalizeOrigin(item.origin),
     attempts: Number(item.attempts ?? 0),
     createdAt: String(item.createdAt ?? new Date(0).toISOString()),
     updatedAt: String(item.updatedAt ?? new Date(0).toISOString()),
@@ -236,6 +253,7 @@ function normalizeLogDetail(item: Partial<LogDetail>): LogDetail {
   return {
     id: String(item.id ?? ''),
     status,
+    origin: normalizeOrigin(item.origin),
     attempts: Number(item.attempts ?? 0),
     error: item.error ?? null,
     createdAt: String(item.createdAt ?? new Date(0).toISOString()),

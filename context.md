@@ -333,6 +333,18 @@
   - Success feedback with direct link to corresponding log.
 - Added log deep-link support in `dashboard/src/pages/logs-page.tsx` via `?logId=` query param for immediate post-trigger inspection.
 
+### 34. Audit Origin Badges in Logs (Complete)
+- Added `Origin` metadata exposure in backend logs API normalization (`src/api/controllers/dashboard.controller.ts`) with source values:
+  - `MANUAL`
+  - `WEBHOOK`
+- Added `origin` typing and normalization in frontend logs service (`dashboard/src/services/logs.service.ts`).
+- Updated logs table UI (`dashboard/src/pages/logs-page.tsx`):
+  - New `Origin` column
+  - Purple badge + Play icon for `MANUAL`
+  - Blue badge + Cloud icon for `WEBHOOK`
+  - Tooltip hint per badge (`Triggered from Dashboard` vs `Triggered via API/Webhook`)
+  - Added Origin filter (`All`, `Manual`, `Webhook`) for faster audit slicing.
+
 ### 25. Logs Pagination Limit Sync (400 Bad Request Fix)
 - Resolved dashboard logs 400 failures caused by query limit mismatch between frontend and backend validation.
 - Updated frontend logs client in `dashboard/src/services/logs.service.ts`:

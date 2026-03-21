@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Loader2, RefreshCw } from 'lucide-react';
+import { Cloud, Loader2, Play, RefreshCw } from 'lucide-react';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
 import { Card } from '../components/ui/card';
@@ -10,6 +10,7 @@ import { getLogById, getLogs, type LogDetail, type LogListItem } from '../servic
 type LoadState = 'idle' | 'loading' | 'success' | 'error';
 type StatusFilter = 'all' | 'completed' | 'failed' | 'pending';
 type RiskFilter = 'all' | 'High' | 'Medium' | 'Low';
+type OriginFilter = 'all' | 'MANUAL' | 'WEBHOOK';
 const LOGS_POLL_LIMIT = 100;
 
 function formatDate(value: string): string {
@@ -54,6 +55,10 @@ function resolveEventType(log: LogListItem): string {
   return 'Unknown';
 }
 
+function getOriginHint(origin: LogListItem['origin']): string {
+  return origin === 'MANUAL' ? 'Triggered from Dashboard' : 'Triggered via API/Webhook';
+}
+
 export function LogsPage() {
   const [searchParams] = useSearchParams();
   const [logs, setLogs] = useState<LogListItem[]>([]);
@@ -63,6 +68,7 @@ export function LogsPage() {
   const [detailState, setDetailState] = useState<LoadState>('idle');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [riskFilter, setRiskFilter] = useState<RiskFilter>('all');
+  const [originFilter, setOriginFilter] = useState<OriginFilter>('all');
   const [pipelineSearch, setPipelineSearch] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
@@ -130,6 +136,10 @@ export function LogsPage() {
         return false;
       }
 
+      if (originFilter !== 'all' && log.origin !== originFilter) {
+        return false;
+      }
+
       if (normalizedSearch) {
         const pipelineName = (log.pipeline?.name ?? '').toLowerCase();
         const pipelineId = (log.pipeline?.id ?? log.pipelineId ?? '').toLowerCase();
@@ -154,7 +164,7 @@ export function LogsPage() {
 
       return true;
     });
-  }, [logs, statusFilter, riskFilter, pipelineSearch, startDate, endDate]);
+  }, [logs, statusFilter, riskFilter, originFilter, pipelineSearch, startDate, endDate]);
 
   return (
     <section className="space-y-5">
@@ -214,6 +224,19 @@ export function LogsPage() {
             </select>
           </div>
 
+          <div className="min-w-[150px] flex-1">
+            <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-zinc-400">Origin</label>
+            <select
+              value={originFilter}
+              onChange={(event) => setOriginFilter(event.target.value as OriginFilter)}
+              className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
+            >
+              <option value="all">All</option>
+              <option value="MANUAL">Manual</option>
+              <option value="WEBHOOK">Webhook</option>
+            </select>
+          </div>
+
           <div className="min-w-[220px] flex-[2]">
             <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-zinc-400">Pipeline Search</label>
             <input
@@ -254,6 +277,7 @@ export function LogsPage() {
               <th className="px-4 py-3 font-medium">Task</th>
               <th className="px-4 py-3 font-medium">Pipeline</th>
               <th className="px-4 py-3 font-medium">Event</th>
+              <th className="px-4 py-3 font-medium">Origin</th>
               <th className="px-4 py-3 font-medium">Status</th>
               <th className="px-4 py-3 font-medium">Risk</th>
               <th className="px-4 py-3 font-medium">Attempts</th>
@@ -276,6 +300,19 @@ export function LogsPage() {
                   <Badge className="bg-sky-500/15 text-sky-300">{resolveEventType(log)}</Badge>
                 </td>
                 <td className="px-4 py-3">
+                  <Badge
+                    className={
+                      log.origin === 'MANUAL'
+                        ? 'gap-1 bg-fuchsia-500/15 text-fuchsia-300'
+                        : 'gap-1 bg-blue-500/15 text-blue-300'
+                    }
+                    title={getOriginHint(log.origin)}
+                  >
+                    {log.origin === 'MANUAL' ? <Play size={12} /> : <Cloud size={12} />}
+                    {log.origin}
+                  </Badge>
+                </td>
+                <td className="px-4 py-3">
                   <Badge variant={getStatusVariant(log.status)}>{log.status}</Badge>
                 </td>
                 <td className="px-4 py-3">
@@ -287,7 +324,7 @@ export function LogsPage() {
             ))}
             {filteredLogs.length === 0 && state === 'success' && (
               <tr>
-                <td colSpan={7} className="px-4 py-10 text-center text-zinc-400">
+                <td colSpan={8} className="px-4 py-10 text-center text-zinc-400">
                   No logs match the selected filters.
                 </td>
               </tr>

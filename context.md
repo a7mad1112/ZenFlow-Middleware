@@ -249,6 +249,17 @@
 - Dashboard Dockerfile is multi-stage (build + nginx runtime) with production static asset serving.
 - Container strategy now supports production deployment with smaller runtime images and clean separation of build/runtime concerns.
 
+### 28. AI Chat UX Formatting Upgrade (Complete)
+- Upgraded Ops Assistant response formatting rules in `src/services/ai.service.ts` to enforce scan-able markdown reports:
+  - required sections: `### 🔍 Analysis`, `### 📊 System Stats`, `### 💡 Recommendation`
+  - mandatory markdown tables for pipeline/task-count listings
+  - standardized status icons: 🟢 success, 🔴 failure, 🟡 pending, ⚠️ risk
+  - strategic bolding only for IDs, error messages, and key counts.
+- Enhanced context derivation in `src/services/ai-assistant.service.ts` with:
+  - computed `healthScore` out of 100
+  - latest failed task error extraction for explicit failure quoting.
+- Added frontend markdown rendering support in `dashboard/src/components/chat/ChatWidget.tsx` using `react-markdown` + `remark-gfm` so bold text, tables, and blockquotes render properly.
+
 ### 25. Logs Pagination Limit Sync (400 Bad Request Fix)
 - Resolved dashboard logs 400 failures caused by query limit mismatch between frontend and backend validation.
 - Updated frontend logs client in `dashboard/src/services/logs.service.ts`:

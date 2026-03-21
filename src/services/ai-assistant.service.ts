@@ -6,6 +6,17 @@ type RiskLevel = 'Low' | 'Medium' | 'High';
 
 export interface AssistantSnapshot {
   generatedAt: string;
+  derived: {
+    healthScore: number;
+    failedTasks: number;
+    completedTasks: number;
+    latestFailure: {
+      taskId: string;
+      error: string;
+      createdAt: string;
+      pipelineName: string | null;
+    } | null;
+  };
   systemStats: {
     totalTasks: number;
     successRate: number;
@@ -104,7 +115,7 @@ function extractAiSummary(result: unknown): string | null {
 }
 
 export async function buildAssistantSnapshot(): Promise<AssistantSnapshot> {
-  const [groupedStatuses, tasksForRisk, pipelines, pipelineTaskGroups, recentLogs] = await Promise.all([
+  const [groupedStatuses, tasksForRisk, pipelines, pipelineTaskGroups, recentLogs, latestFailedTask] = await Promise.all([
     prisma.task.groupBy({
       by: ['status'],
       _count: {
@@ -165,6 +176,27 @@ export async function buildAssistantSnapshot(): Promise<AssistantSnapshot> {
         },
       },
     }),
+    prisma.task.findFirst({
+      where: {
+        status: {
+          equals: 'failed',
+          mode: 'insensitive',
+        },
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+      select: {
+        id: true,
+        error: true,
+        createdAt: true,
+        pipeline: {
+          select: {
+            name: true,
+          },
+        },
+      },
+    }),
   ]);
 
   const statusCounts = {
@@ -200,6 +232,8 @@ export async function buildAssistantSnapshot(): Promise<AssistantSnapshot> {
 
   const successRate =
     totalTasks === 0 ? 0 : Number(((statusCounts.completed / totalTasks) * 100).toFixed(2));
+
+  const healthScore = Number(Math.max(0, Math.min(100, successRate)).toFixed(2));
 
   const taskGroupMap = new Map<
     string,
@@ -271,6 +305,20 @@ export async function buildAssistantSnapshot(): Promise<AssistantSnapshot> {
 
   return {
     generatedAt: new Date().toISOString(),
+    derived: {
+      healthScore,
+      failedTasks: statusCounts.failed,
+      completedTasks: statusCounts.completed,
+      latestFailure:
+        latestFailedTask && typeof latestFailedTask.error === 'string' && latestFailedTask.error.trim()
+          ? {
+              taskId: latestFailedTask.id,
+              error: latestFailedTask.error,
+              createdAt: latestFailedTask.createdAt.toISOString(),
+              pipelineName: latestFailedTask.pipeline?.name ?? null,
+            }
+          : null,
+    },
     systemStats: {
       totalTasks,
       successRate,

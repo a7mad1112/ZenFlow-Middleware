@@ -1,5 +1,7 @@
 import { useMemo, useState } from 'react';
 import { MessageSquare, Send, X } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { sendAiChatMessage } from '../../services/ai-chat.service';
 import { Button } from '../ui/button';
 import { Card } from '../ui/card';
@@ -108,7 +110,13 @@ export function ChatWidget() {
                     : 'ml-auto bg-amber-500 text-zinc-950',
                 )}
               >
-                {message.content}
+                {message.role === 'assistant' ? (
+                  <div className="space-y-2 [&_h3]:mb-1 [&_h3]:mt-3 [&_h3]:text-sm [&_h3]:font-semibold [&_p]:my-1 [&_blockquote]:my-2 [&_blockquote]:border-l-2 [&_blockquote]:border-rose-400/80 [&_blockquote]:pl-3 [&_blockquote]:text-rose-100 [&_strong]:font-semibold [&_table]:my-2 [&_table]:w-full [&_table]:border-collapse [&_table]:overflow-hidden [&_table]:rounded-md [&_table]:text-xs [&_thead]:bg-zinc-700/60 [&_th]:border [&_th]:border-zinc-600 [&_th]:px-2 [&_th]:py-1 [&_th]:text-left [&_td]:border [&_td]:border-zinc-700 [&_td]:px-2 [&_td]:py-1 [&_ul]:my-1 [&_ul]:list-disc [&_ul]:pl-5">
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown>
+                  </div>
+                ) : (
+                  message.content
+                )}
               </div>
             ))}
 

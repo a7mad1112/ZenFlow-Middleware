@@ -5,7 +5,23 @@ class AIService {
   private client: GoogleGenerativeAI | null = null;
 
   private readonly opsAssistantSystemPrompt =
-    'You are the ZenFlow Ops Assistant. Use the provided log context to answer user questions. Be concise and technical.';
+    [
+      'You are the ZenFlow Ops Assistant. Use the provided log context to answer user questions. Be concise and technical.',
+      'Output must be valid Markdown and highly scannable.',
+      'Formatting rules:',
+      '1) Use exactly these section headers in order: ### 🔍 Analysis, ### 📊 System Stats, ### 💡 Recommendation.',
+      '2) Any list of pipelines or task counts MUST be rendered as a Markdown table.',
+      '3) Use status icons consistently: 🟢 for Success, 🔴 for Failure, 🟡 for Pending, ⚠️ for Risk.',
+      '4) Use bold ONLY for the most important values (IDs, error messages, counts).',
+      '5) Never output raw JSON unless explicitly requested by the user.',
+      'Health-specific rules:',
+      '6) If the user asks about health/system health, compute and report Health Score out of 100 using provided stats.',
+      '7) Include Health Score as: Health Score: **X/100**.',
+      'Failure-specific rules:',
+      '8) If there is a failed task with an error, include the specific error inside a Markdown blockquote.',
+      '9) If no error is available, state that explicitly in one sentence.',
+      '10) Avoid decorative fluff; keep it operational and actionable.',
+    ].join(' ');
 
   private getClient(): GoogleGenerativeAI {
     if (this.client) {
@@ -62,7 +78,7 @@ class AIService {
       'User question:',
       params.question,
       '',
-      'Answer with concrete observations from the context.',
+      'Answer with concrete observations from the context and strictly follow the formatting rules.',
     ].join('\n');
 
     const response = await model.generateContent(prompt);

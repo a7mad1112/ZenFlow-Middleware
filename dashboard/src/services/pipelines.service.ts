@@ -32,6 +32,7 @@ export interface CreatePipelineInput {
   enabledActions: ActionType[];
   discordEnabled: boolean;
   emailEnabled: boolean;
+  config?: Record<string, unknown>;
 }
 
 export interface UpdatePipelineInput {

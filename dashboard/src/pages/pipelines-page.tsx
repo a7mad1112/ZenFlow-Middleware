@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Form, Formik } from 'formik';
 import * as Yup from 'yup';
-import { ArrowRight, Loader2, Play, Plus, Sparkles, Trash2, X } from 'lucide-react';
+import { ArrowRight, Loader2, Play, Plus, Trash2, X } from 'lucide-react';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
 import { Card } from '../components/ui/card';
@@ -33,9 +33,6 @@ const actionItems: Array<{ key: ActionType; label: string }> = [
 const pipelineSchema = Yup.object({
   name: Yup.string().trim().required('Name is required').max(255, 'Name is too long'),
   description: Yup.string().max(1000, 'Description is too long').optional(),
-  actionType: Yup.mixed<ActionType>()
-    .oneOf(['CONVERTER', 'EMAIL', 'DISCORD', 'PDF', 'AI_SUMMARIZER'])
-    .required('Action type is required'),
 });
 
 function formatDate(value: string): string {
@@ -528,7 +525,6 @@ export function PipelinesPage() {
               initialValues={{
                 name: '',
                 description: '',
-                actionType: 'CONVERTER' as ActionType,
                 xmlEnabled: true,
                 aiEnabled: false,
                 pdfEnabled: false,
@@ -548,7 +544,9 @@ export function PipelinesPage() {
                     ...(values.discordEnabled ? (['DISCORD'] as const) : []),
                   ];
 
-                  if (enabledActions.length === 0) {
+                  const derivedPrimaryAction = enabledActions[0];
+
+                  if (!derivedPrimaryAction) {
                     setErrorMessage('Select at least one action before creating a pipeline.');
                     helpers.setSubmitting(false);
                     return;
@@ -557,10 +555,19 @@ export function PipelinesPage() {
                   await createPipeline({
                     name: values.name.trim(),
                     description: values.description.trim() || undefined,
-                    actionType: values.actionType,
+                    actionType: derivedPrimaryAction,
                     enabledActions,
                     emailEnabled: values.emailEnabled,
                     discordEnabled: values.discordEnabled,
+                    config: {
+                      featureFlags: {
+                        xmlEnabled: values.xmlEnabled,
+                        aiEnabled: values.aiEnabled,
+                        pdfEnabled: values.pdfEnabled,
+                        emailEnabled: values.emailEnabled,
+                        discordEnabled: values.discordEnabled,
+                      },
+                    },
                   });
                   helpers.resetForm();
                   setIsModalOpen(false);
@@ -607,32 +614,9 @@ export function PipelinesPage() {
                     )}
                   </div>
 
-                  <div>
-                    <label htmlFor="actionType" className="mb-1 block text-sm text-zinc-300">
-                      Action Type
-                    </label>
-                    <select
-                      id="actionType"
-                      name="actionType"
-                      value={values.actionType}
-                      onChange={handleChange}
-                      className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-zinc-100"
-                    >
-                      <option value="CONVERTER">CONVERTER</option>
-                      <option value="DISCORD">DISCORD</option>
-                      <option value="EMAIL">EMAIL</option>
-                      <option value="PDF">PDF</option>
-                      <option value="AI_SUMMARIZER">AI_SUMMARIZER</option>
-                    </select>
-                    {touched.actionType && errors.actionType && (
-                      <p className="mt-1 text-xs text-rose-300">{errors.actionType}</p>
-                    )}
-                  </div>
-
                   <div className="rounded-lg border border-zinc-800/80 bg-zinc-900/60 p-3">
-                    <p className="mb-2 flex items-center gap-2 text-xs uppercase tracking-wide text-zinc-500">
-                      <Sparkles size={13} />
-                      Action Preview
+                    <p className="mb-2 text-xs uppercase tracking-wide text-zinc-500">
+                      Feature Checklist
                     </p>
                     <ActionFlow
                       actions={[

@@ -351,6 +351,16 @@
 - Added explicit failure fallback for missing webhook URL with clear message: `Missing Webhook URL`.
 - Added terminal-level diagnostics with `console.error` that logs Discord response details (`status`, `statusText`, `body`) for debugging 400/401 and similar API failures.
 
+### 36. Pipeline Creation UX Simplification (Complete)
+- Removed redundant `Action Type` dropdown from Create Pipeline modal in `dashboard/src/pages/pipelines-page.tsx`.
+- Unified creation flow around the 5 action toggles only (XML, AI, PDF, Email, Discord).
+- Improved toggle section as a clean feature checklist/grid with selected flow preview.
+- Submit logic now derives a primary action internally from selected toggles and sends:
+  - `enabledActions` array
+  - channel flags (`emailEnabled`, `discordEnabled`)
+  - toggle state snapshot in `config.featureFlags`.
+- Updated create API contract in `dashboard/src/services/pipelines.service.ts` to allow optional `config` payload.
+
 ### 25. Logs Pagination Limit Sync (400 Bad Request Fix)
 - Resolved dashboard logs 400 failures caused by query limit mismatch between frontend and backend validation.
 - Updated frontend logs client in `dashboard/src/services/logs.service.ts`:

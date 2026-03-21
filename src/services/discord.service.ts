@@ -2,13 +2,16 @@ import { logger } from '../shared/logger.js';
 import { config } from '../config/env.js';
 
 function resolveDiscordWebhookUrl(overrideUrl?: string): string {
-  const url = overrideUrl ?? config.discordWebhookUrl ?? process.env.DISCORD_WEBHOOK_URL;
+  const finalUrl =
+    overrideUrl?.trim() ||
+    process.env.DISCORD_WEBHOOK_URL?.trim() ||
+    config.discordWebhookUrl?.trim();
 
-  if (!url || url.trim() === '') {
+  if (!finalUrl || finalUrl === '') {
     throw new Error('Missing Webhook URL');
   }
 
-  return url;
+  return finalUrl;
 }
 
 function buildDiscordPayload(aiSummary: string): { content: string } {

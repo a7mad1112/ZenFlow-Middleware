@@ -24,10 +24,10 @@ type LoadState = 'idle' | 'loading' | 'success' | 'error';
 
 const actionItems: Array<{ key: ActionType; label: string }> = [
   { key: 'CONVERTER', label: 'XML' },
-  { key: 'DISCORD', label: 'Discord' },
-  { key: 'EMAIL', label: 'Email' },
-  { key: 'PDF', label: 'PDF' },
   { key: 'AI_SUMMARIZER', label: 'AI' },
+  { key: 'PDF', label: 'PDF' },
+  { key: 'EMAIL', label: 'Email' },
+  { key: 'DISCORD', label: 'Discord' },
 ];
 
 const pipelineSchema = Yup.object({

@@ -29,6 +29,7 @@ export async function ingestWebhook(
 ): Promise<any> {
   try {
     let webhookId: string | undefined;
+    let webhookTargetUrl: string | undefined;
     let pipelineId: string | undefined;
     const incomingEventType = extractIncomingEventType(data.payload);
 
@@ -55,6 +56,7 @@ export async function ingestWebhook(
       }
 
       webhookId = webhook.id;
+      webhookTargetUrl = webhook.url;
       pipelineId = webhook.pipelineId;
       logger.info('Webhook found for ingestion', { webhookId, pipelineId });
     }
@@ -104,6 +106,7 @@ export async function ingestWebhook(
       }
 
       webhookId = webhookConfig.id;
+      webhookTargetUrl = webhookConfig.url;
       logger.info('Pipeline found for direct ingestion', { pipelineId });
     }
 
@@ -143,6 +146,8 @@ export async function ingestWebhook(
         {
           logId: result.id,
           pipelineId: result.pipelineId,
+          webhookId,
+          webhookTargetUrl,
           payload: data.payload,
         },
         {

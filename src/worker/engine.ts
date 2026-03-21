@@ -13,6 +13,7 @@ const prisma = new PrismaClient();
 export interface TaskPayload {
   pipelineId: string;
   webhookId?: string;
+  webhookTargetUrl?: string;
   payload: Record<string, unknown>;
   logId: string;
 }
@@ -185,7 +186,7 @@ async function handleConverterAction(
  * Fetches pipeline, identifies action, executes, and updates DB
  */
 async function processTask(taskData: TaskPayload): Promise<void> {
-  const { pipelineId, logId, payload, webhookId } = taskData;
+  const { pipelineId, logId, payload, webhookId, webhookTargetUrl } = taskData;
   const prismaAny = prisma as any;
   let xmlOutput: string | null = null;
   let resultDetails: Record<string, unknown> | null = null;
@@ -237,6 +238,14 @@ async function processTask(taskData: TaskPayload): Promise<void> {
     });
 
     const runtimeConfig = getPipelineRuntimeConfig(pipeline.config);
+    const matchedWebhook = webhookId
+      ? await prisma.webhook.findUnique({
+          where: { id: webhookId },
+          select: { url: true },
+        })
+      : null;
+    const effectiveDiscordWebhookUrl =
+      webhookTargetUrl ?? matchedWebhook?.url ?? runtimeConfig.discordWebhookUrl;
     const taskOrigin = resolveTaskOrigin(payload);
 
     const aiEnabledByPipeline = isActionEnabledForPipeline(pipeline as any, 'AI_SUMMARIZER');
@@ -273,7 +282,13 @@ async function processTask(taskData: TaskPayload): Promise<void> {
         sent: false,
       },
       runtimeConfigSource: {
-        discord: runtimeConfig.discordWebhookUrl ? 'pipeline.config.discordWebhookUrl' : 'global env',
+        discord: webhookTargetUrl
+          ? 'webhook configuration (job payload)'
+          : matchedWebhook?.url
+            ? 'webhook configuration (database)'
+            : runtimeConfig.discordWebhookUrl
+              ? 'pipeline.config.discordWebhookUrl'
+              : 'global env',
         smtp: runtimeConfig.smtp?.user ? 'pipeline.config.smtp' : 'global env',
       },
     };
@@ -497,7 +512,7 @@ async function processTask(taskData: TaskPayload): Promise<void> {
         });
 
         try {
-          await sendXmlToDiscord(xmlOutput, aiSummary, runtimeConfig.discordWebhookUrl);
+          await sendXmlToDiscord(xmlOutput, aiSummary, effectiveDiscordWebhookUrl);
           resultDetails.discord = {
             status: 'success',
             attempted: true,

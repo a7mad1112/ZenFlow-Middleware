@@ -516,6 +516,7 @@ export async function triggerPipelineManually(
     }
 
     let webhookId: string | null = null;
+    let webhookTargetUrl: string | undefined;
     if (data.eventType && data.eventType.trim() !== '') {
       const matchedWebhook = await prisma.webhook.findFirst({
         where: {
@@ -532,6 +533,7 @@ export async function triggerPipelineManually(
       }
 
       webhookId = matchedWebhook.id;
+      webhookTargetUrl = matchedWebhook.url;
     }
 
     const payloadWithMeta: Record<string, unknown> = {
@@ -571,6 +573,7 @@ export async function triggerPipelineManually(
         logId: task.id,
         pipelineId: task.pipelineId,
         webhookId: task.webhookId ?? undefined,
+        webhookTargetUrl,
         payload: payloadWithMeta,
       },
       {

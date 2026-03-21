@@ -497,32 +497,44 @@ async function processTask(taskData: TaskPayload): Promise<void> {
           skippedReason: 'disabled in Pipeline settings',
         };
         (resultDetails.actions as Record<string, unknown>).discord = 'skipped';
-      } else if (!xmlOutput) {
-        resultDetails.discord = {
-          status: 'failed',
-          attempted: false,
-          sent: false,
-          error: 'Discord action requires XML output but converter did not produce one',
-        };
-        (resultDetails.actions as Record<string, unknown>).discord = 'failed';
       } else {
-        logger.info('Forwarding converter result to Discord', {
+        logger.info('Forwarding result to Discord', {
           taskId: logId,
           pipelineId: pipelineId,
+          hasXmlOutput: Boolean(xmlOutput),
         });
 
         try {
-          await sendXmlToDiscord(xmlOutput, aiSummary, effectiveDiscordWebhookUrl);
-          resultDetails.discord = {
-            status: 'success',
-            attempted: true,
-            sent: true,
-          };
-          (resultDetails.actions as Record<string, unknown>).discord = 'success';
+          const discordDispatch = await sendXmlToDiscord(
+            xmlOutput,
+            aiSummary,
+            effectiveDiscordWebhookUrl,
+            payload,
+          );
 
-          logger.info('Converter result forwarded to Discord successfully', {
+          if (discordDispatch.status === 'skipped_no_content') {
+            resultDetails.discord = {
+              status: 'skipped',
+              attempted: false,
+              sent: false,
+              skippedReason: discordDispatch.reason ?? 'No content available for Discord',
+            };
+            (resultDetails.actions as Record<string, unknown>).discord = 'skipped';
+          } else {
+            resultDetails.discord = {
+              status: 'success',
+              attempted: true,
+              sent: true,
+              mode: discordDispatch.hadAttachment ? 'xml_attachment' : 'text_only',
+            };
+            (resultDetails.actions as Record<string, unknown>).discord = 'success';
+          }
+
+          logger.info('Result forwarded to Discord successfully', {
             taskId: logId,
             pipelineId: pipelineId,
+            dispatchMode: discordDispatch.hadAttachment ? 'xml_attachment' : 'text_only_or_skipped',
+            dispatchStatus: discordDispatch.status,
           });
         } catch (discordError) {
           logger.error('Discord action failed but task will continue', {

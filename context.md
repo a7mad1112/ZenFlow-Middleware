@@ -24,7 +24,9 @@
 
 ### 4. Action 2: Discord Notifier
 - Converter results can be forwarded to Discord via webhook.
-- Discord failures are logged and reflected in task/error state based on current workflow logic.
+- Discord delivery is resilient and no longer hard-depends on XML generation.
+- If XML exists, Discord sends XML as an attachment; if XML is disabled/missing, Discord sends a text-only summary fallback.
+- If no XML and no summary content are available, Discord is safely skipped (no POST call) with explicit skipped metadata.
 - Request-level override is supported via `metadata.skipDiscord`.
 
 ### 5. Action 3: Email Notifier (Gmail / Nodemailer)
@@ -372,7 +374,32 @@
   - default increased from `20` to `50`.
 
 ## Architecture Flow (Current)
-- Webhook Logs -> RAG Snapshot Service -> Gemini 2.5 Flash -> Dashboard Chat Widget
+- External Event Ingestion Path: `POST /api/webhooks/:id` -> eventType match (`eventType` | `type` | `event`) -> active WebhookConfiguration selection -> queue -> worker actions -> logs/dashboard.
+- Internal Manual Dispatch Path: Dashboard `Run Pipeline` modal -> `POST /api/pipelines/:id/trigger` -> task creation (`origin: MANUAL`) -> queue -> worker actions -> logs/dashboard.
+- Discord Routing Priority: matched webhook `targetUrl/url` -> configured fallback webhook URL (`DISCORD_WEBHOOK_URL`) -> skip with reason if no message content.
+- AI Ops Path: Webhook Logs -> RAG Snapshot Service -> Gemini 2.5 Flash -> Dashboard Chat Widget.
+
+### 37. Architecture Sync: Manual Dispatch, Event Routing, Action Toggles, Discord Resilience, Origin Audit (Complete)
+- Manual Dispatcher (UI -> Internal Path):
+  - Dashboard supports direct internal execution through `POST /api/pipelines/:id/trigger`.
+  - Trigger modal accepts JSON payload plus optional event context.
+  - Manual jobs are queued via pg-boss and run through full worker flow (AI/XML/PDF/Email/Discord).
+- Event-Based Routing (eventType -> targetUrl):
+  - Ingestion extracts incoming event key from `eventType`, `type`, or `event`.
+  - Router selects active webhook configuration by `(pipelineId, eventType, isActive)`.
+  - Selected webhook URL (`WebhookConfiguration.targetUrl`/`webhook.url`) is propagated to worker dispatch and used as the first-choice delivery destination.
+- Action Toggles (Independent Feature Checklist):
+  - Pipeline creation/update now uses independent toggles for: `XML`, `AI`, `PDF`, `Email`, `Discord`.
+  - Toggle state is persisted through `enabledActions` plus channel flags (`emailEnabled`, `discordEnabled`).
+  - UI action flow display is fixed and logical: `XML -> AI -> PDF -> Email -> Discord`.
+- Discord Resilience (XML-Independent):
+  - Discord action executes independently of XML toggle state.
+  - With XML enabled/output present: send text + `result.xml` attachment.
+  - With XML disabled/missing: send text-only summary from AI summary and/or payload details.
+  - With absolutely no content: mark Discord as `skipped` and avoid outbound webhook request.
+- Origin Tagging (Audit):
+  - Tasks now persist source origin as `MANUAL` or `WEBHOOK` in execution metadata.
+  - Logs API and dashboard expose this origin for filtering, badges, and post-incident traceability.
 
 ## Milestones
 1. Backend Automation Platform: Complete

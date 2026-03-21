@@ -50,6 +50,18 @@ export interface CreatePipelineWebhookInput {
   isActive?: boolean;
 }
 
+export interface TriggerPipelineInput {
+  payload: Record<string, unknown>;
+  eventType?: string;
+}
+
+export interface TriggerPipelineResult {
+  taskId: string;
+  jobId: string;
+  status: string;
+  webhookId: string | null;
+}
+
 interface ApiEnvelope<T> {
   success?: boolean;
   data: T;
@@ -169,4 +181,16 @@ export async function updatePipelineWebhookStatus(
     { isActive },
   );
   return normalizeWebhook(response.data.data);
+}
+
+export async function triggerPipeline(
+  pipelineId: string,
+  data: TriggerPipelineInput,
+): Promise<TriggerPipelineResult> {
+  const response = await apiClient.post<ApiEnvelope<TriggerPipelineResult>>(
+    `/api/pipelines/${pipelineId}/trigger`,
+    data,
+  );
+
+  return response.data.data;
 }

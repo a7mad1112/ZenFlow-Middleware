@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Loader2, RefreshCw } from 'lucide-react';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
@@ -54,6 +55,7 @@ function resolveEventType(log: LogListItem): string {
 }
 
 export function LogsPage() {
+  const [searchParams] = useSearchParams();
   const [logs, setLogs] = useState<LogListItem[]>([]);
   const [state, setState] = useState<LoadState>('idle');
   const [selectedLogId, setSelectedLogId] = useState<string | null>(null);
@@ -90,6 +92,16 @@ export function LogsPage() {
   useEffect(() => {
     fetchLogs();
   }, [fetchLogs]);
+
+  useEffect(() => {
+    const requestedLogId = searchParams.get('logId');
+    if (!requestedLogId) {
+      return;
+    }
+
+    setSelectedLogId(requestedLogId);
+    fetchDetail(requestedLogId);
+  }, [fetchDetail, searchParams]);
 
   useEffect(() => {
     const timer = window.setInterval(() => {

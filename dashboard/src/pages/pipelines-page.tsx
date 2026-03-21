@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Form, Formik } from 'formik';
 import * as Yup from 'yup';
-import { ArrowRight, Loader2, Plus, Sparkles, Trash2, X } from 'lucide-react';
+import { ArrowRight, Loader2, Play, Plus, Sparkles, Trash2, X } from 'lucide-react';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
 import { Card } from '../components/ui/card';
@@ -15,6 +16,7 @@ import {
   type ActionType,
   type Pipeline,
   type PipelineWebhook,
+  triggerPipeline,
   updatePipelineWebhookStatus,
 } from '../services/pipelines.service';
 
@@ -119,6 +121,7 @@ function ToggleButton({
 }
 
 export function PipelinesPage() {
+  const navigate = useNavigate();
   const [pipelines, setPipelines] = useState<Pipeline[]>([]);
   const [webhooksByPipeline, setWebhooksByPipeline] = useState<Record<string, PipelineWebhook[]>>({});
   const [newWebhookByPipeline, setNewWebhookByPipeline] = useState<
@@ -126,12 +129,34 @@ export function PipelinesPage() {
   >({});
   const [state, setState] = useState<LoadState>('idle');
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [triggerModalPipelineId, setTriggerModalPipelineId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [triggerResult, setTriggerResult] = useState<{ taskId: string; pipelineName: string } | null>(null);
   const [busyAction, setBusyAction] = useState<string | null>(null);
+
+  const defaultTriggerPayload = JSON.stringify(
+    {
+      eventType: 'order.created',
+      orderId: 'ORD-1001',
+      customer: {
+        name: 'Jane Doe',
+        email: 'jane@example.com',
+      },
+      total: 149.99,
+      currency: 'USD',
+      metadata: {
+        source: 'dashboard-manual-trigger',
+      },
+    },
+    null,
+    2,
+  );
 
   const fetchPipelines = useCallback(async () => {
     setState((prev) => (prev === 'success' ? 'success' : 'loading'));
     setErrorMessage(null);
+    setSuccessMessage(null);
     try {
       const data = await getPipelines();
       setPipelines(data);
@@ -180,6 +205,7 @@ export function PipelinesPage() {
   async function handleDelete(id: string) {
     setBusyAction(`delete:${id}`);
     setErrorMessage(null);
+    setSuccessMessage(null);
     try {
       await deletePipeline(id);
       await fetchPipelines();
@@ -194,6 +220,7 @@ export function PipelinesPage() {
     const current = pipeline.enabledActions.includes(action);
     setBusyAction(`toggle:${pipeline.id}:${action}`);
     setErrorMessage(null);
+    setSuccessMessage(null);
     try {
       await toggleAction(pipeline.id, action, !current);
       await fetchPipelines();
@@ -218,6 +245,7 @@ export function PipelinesPage() {
 
     setBusyAction(`webhook-create:${pipelineId}`);
     setErrorMessage(null);
+    setSuccessMessage(null);
     try {
       await createPipelineWebhook(pipelineId, {
         eventType: draft.eventType.trim(),
@@ -253,6 +281,7 @@ export function PipelinesPage() {
   ) {
     setBusyAction(`webhook-toggle:${webhookId}`);
     setErrorMessage(null);
+    setSuccessMessage(null);
     try {
       await updatePipelineWebhookStatus(pipelineId, webhookId, nextIsActive);
       const refreshed = await getPipelineWebhooks(pipelineId);
@@ -291,6 +320,7 @@ export function PipelinesPage() {
       )}
 
       {errorMessage && <Card className="border-rose-500/30 bg-rose-500/10 text-rose-200">{errorMessage}</Card>}
+      {successMessage && <Card className="border-emerald-500/30 bg-emerald-500/10 text-emerald-200">{successMessage}</Card>}
 
       <div className="grid gap-4 lg:grid-cols-2">
         {pipelines.map((pipeline) => (
@@ -308,6 +338,18 @@ export function PipelinesPage() {
                 <Badge variant={pipeline.isActive ? 'success' : 'warning'}>
                   {pipeline.isActive ? 'Active' : 'Inactive'}
                 </Badge>
+                <Button
+                  variant="ghost"
+                  className="gap-2 px-2"
+                  onClick={() => {
+                    setTriggerModalPipelineId(pipeline.id);
+                    setErrorMessage(null);
+                    setSuccessMessage(null);
+                  }}
+                >
+                  <Play size={15} />
+                  Trigger
+                </Button>
                 <Button
                   variant="ghost"
                   className="px-2"
@@ -676,6 +718,148 @@ export function PipelinesPage() {
                   </div>
                 </Form>
               )}
+            </Formik>
+          </Card>
+        </div>
+      )}
+
+      {triggerModalPipelineId && (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/60 p-4">
+          <Card className="w-full max-w-2xl space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-zinc-100">Trigger Pipeline Manually</h3>
+              <Button
+                variant="ghost"
+                className="px-2"
+                onClick={() => {
+                  setTriggerModalPipelineId(null);
+                  setTriggerResult(null);
+                }}
+              >
+                <X size={16} />
+              </Button>
+            </div>
+
+            <Formik
+              initialValues={{
+                eventType: '',
+                payloadText: defaultTriggerPayload,
+              }}
+              onSubmit={async (values, helpers) => {
+                if (!triggerModalPipelineId) {
+                  return;
+                }
+
+                helpers.setSubmitting(true);
+                setErrorMessage(null);
+                setSuccessMessage(null);
+
+                try {
+                  let payload: Record<string, unknown>;
+                  try {
+                    const parsed = JSON.parse(values.payloadText);
+                    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+                      throw new Error('Payload must be a JSON object');
+                    }
+                    payload = parsed as Record<string, unknown>;
+                  } catch {
+                    setErrorMessage('Payload must be valid JSON object.');
+                    return;
+                  }
+
+                  const result = await triggerPipeline(triggerModalPipelineId, {
+                    payload,
+                    eventType: values.eventType || undefined,
+                  });
+
+                  const pipelineName =
+                    pipelines.find((item) => item.id === triggerModalPipelineId)?.name ?? triggerModalPipelineId;
+
+                  setTriggerResult({
+                    taskId: result.taskId,
+                    pipelineName,
+                  });
+                  setSuccessMessage(`Pipeline triggered successfully. Log ID: ${result.taskId}`);
+                } catch {
+                  setErrorMessage('Failed to trigger pipeline manually.');
+                } finally {
+                  helpers.setSubmitting(false);
+                }
+              }}
+            >
+              {({ values, handleChange, isSubmitting }) => {
+                const pipelineWebhooks = webhooksByPipeline[triggerModalPipelineId] ?? [];
+
+                return (
+                  <Form className="space-y-4">
+                    <div>
+                      <label htmlFor="eventType" className="mb-1 block text-sm text-zinc-300">
+                        Event Type Context
+                      </label>
+                      <select
+                        id="eventType"
+                        name="eventType"
+                        value={values.eventType}
+                        onChange={handleChange}
+                        className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-zinc-100"
+                      >
+                        <option value="">No event context</option>
+                        {pipelineWebhooks.map((webhook) => (
+                          <option key={webhook.id} value={webhook.eventType}>
+                            {webhook.eventType} ({webhook.isActive ? 'Active' : 'Inactive'})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label htmlFor="payloadText" className="mb-1 block text-sm text-zinc-300">
+                        JSON Payload
+                      </label>
+                      <textarea
+                        id="payloadText"
+                        name="payloadText"
+                        value={values.payloadText}
+                        onChange={handleChange}
+                        rows={14}
+                        className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 font-mono text-xs text-zinc-100"
+                      />
+                    </div>
+
+                    {triggerResult && (
+                      <Card className="border-emerald-500/30 bg-emerald-500/10 p-3 text-emerald-100">
+                        <p className="text-sm">
+                          Success: <span className="font-semibold">{triggerResult.pipelineName}</span> dispatched.
+                        </p>
+                        <button
+                          type="button"
+                          className="mt-2 text-sm underline underline-offset-2"
+                          onClick={() => navigate(`/logs?logId=${encodeURIComponent(triggerResult.taskId)}`)}
+                        >
+                          Open Log {triggerResult.taskId}
+                        </button>
+                      </Card>
+                    )}
+
+                    <div className="flex justify-end gap-2">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        onClick={() => {
+                          setTriggerModalPipelineId(null);
+                          setTriggerResult(null);
+                        }}
+                      >
+                        Close
+                      </Button>
+                      <Button type="submit" disabled={isSubmitting} className="gap-2">
+                        <Play size={14} />
+                        {isSubmitting ? 'Running...' : 'Run Pipeline'}
+                      </Button>
+                    </div>
+                  </Form>
+                );
+              }}
             </Formik>
           </Card>
         </div>

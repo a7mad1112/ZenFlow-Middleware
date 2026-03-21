@@ -10,6 +10,7 @@ import {
   getPipelineHealth,
   deletePipeline,
   getSubscribersByPipelineId,
+  triggerPipelineManually,
 } from '../controllers/pipeline.controller.js';
 import {
   createWebhook,
@@ -53,6 +54,11 @@ const createWebhookSchema = z.object({
   isActive: z.boolean().optional(),
 });
 
+const triggerPipelineSchema = z.object({
+  payload: z.record(z.unknown()),
+  eventType: z.string().trim().min(1).optional(),
+});
+
 const updateWebhookStatusSchema = z.object({
   isActive: z.boolean(),
 });
@@ -62,6 +68,7 @@ type UpdatePipelineRequest = z.infer<typeof updatePipelineSchema>;
 type AddSubscriberRequest = z.infer<typeof addSubscriberSchema>;
 type CreateWebhookRequest = z.infer<typeof createWebhookSchema>;
 type UpdatePipelineActionsRequest = z.infer<typeof updatePipelineActionsSchema>;
+type TriggerPipelineRequest = z.infer<typeof triggerPipelineSchema>;
 
 export function setupPipelineRoutes(app: Express): void {
   /**
@@ -377,6 +384,56 @@ export function setupPipelineRoutes(app: Express): void {
         res.status(404).json({
           success: false,
           message: 'Pipeline not found',
+        });
+      } else {
+        res.status(500).json({
+          success: false,
+          message: 'Internal server error',
+        });
+      }
+    }
+  });
+
+  /**
+   * POST /api/pipelines/:id/trigger
+   * Manually dispatch a pipeline task from internal dashboard
+   */
+  app.post('/api/pipelines/:id/trigger', async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { id } = req.params;
+      const data: TriggerPipelineRequest = triggerPipelineSchema.parse(req.body);
+
+      const triggered = await triggerPipelineManually(id, {
+        payload: data.payload,
+        eventType: data.eventType,
+      });
+
+      res.status(202).json({
+        success: true,
+        message: 'Pipeline trigger accepted',
+        data: triggered,
+      });
+    } catch (error) {
+      logger.error('POST /api/pipelines/:id/trigger failed', {
+        error: error instanceof Error ? error.message : String(error),
+        pipeline_id: req.params.id,
+      });
+
+      if (error instanceof z.ZodError) {
+        res.status(400).json({
+          success: false,
+          message: 'Validation error',
+          errors: error.errors,
+        });
+      } else if (error instanceof Error && error.message.includes('not found')) {
+        res.status(404).json({
+          success: false,
+          message: 'Pipeline or event webhook not found',
+        });
+      } else if (error instanceof Error && error.message.includes('inactive')) {
+        res.status(400).json({
+          success: false,
+          message: error.message,
         });
       } else {
         res.status(500).json({

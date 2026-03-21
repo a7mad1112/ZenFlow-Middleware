@@ -1,5 +1,6 @@
 import { PrismaClient, Prisma } from '@prisma/client';
 import { logger } from '../../shared/logger.js';
+import { getBoss } from '../../lib/boss.js';
 
 const prisma = new PrismaClient();
 
@@ -15,6 +16,11 @@ export interface CreatePipelineDTO {
 
 export interface AddSubscriberDTO {
   targetUrl: string;
+}
+
+export interface TriggerPipelineDTO {
+  payload: Record<string, unknown>;
+  eventType?: string;
 }
 
 export interface UpdatePipelineActionsDTO {
@@ -479,6 +485,123 @@ export async function getSubscribersByPipelineId(
     logger.error('Failed to retrieve subscribers', {
       error: error instanceof Error ? error.message : String(error),
       pipeline_id: pipelineId,
+    });
+    throw error;
+  }
+}
+
+/**
+ * Trigger a pipeline manually from internal dashboard UI
+ */
+export async function triggerPipelineManually(
+  pipelineId: string,
+  data: TriggerPipelineDTO
+): Promise<{
+  taskId: string;
+  jobId: string;
+  status: string;
+  webhookId: string | null;
+}> {
+  try {
+    const pipeline = await prisma.pipeline.findUnique({
+      where: { id: pipelineId },
+    });
+
+    if (!pipeline) {
+      throw new Error(`Pipeline ${pipelineId} not found`);
+    }
+
+    if (!pipeline.isActive) {
+      throw new Error(`Pipeline ${pipelineId} is inactive`);
+    }
+
+    let webhookId: string | null = null;
+    if (data.eventType && data.eventType.trim() !== '') {
+      const matchedWebhook = await prisma.webhook.findFirst({
+        where: {
+          pipelineId,
+          eventType: data.eventType.trim(),
+        },
+        orderBy: {
+          createdAt: 'desc',
+        },
+      });
+
+      if (!matchedWebhook) {
+        throw new Error(`No webhook configuration found for event type ${data.eventType}`);
+      }
+
+      webhookId = matchedWebhook.id;
+    }
+
+    const payloadWithMeta: Record<string, unknown> = {
+      ...data.payload,
+      metadata:
+        data.payload.metadata && typeof data.payload.metadata === 'object' && !Array.isArray(data.payload.metadata)
+          ? {
+              ...(data.payload.metadata as Record<string, unknown>),
+              origin: 'MANUAL',
+            }
+          : {
+              origin: 'MANUAL',
+            },
+      ...(data.eventType ? { eventType: data.eventType } : {}),
+    };
+
+    const task = await prisma.task.create({
+      data: {
+        pipelineId,
+        webhookId: webhookId ?? undefined,
+        status: 'pending',
+        payload: payloadWithMeta as any,
+        attempts: 0,
+        maxAttempts: 3,
+        result: {
+          origin: 'MANUAL',
+          dispatchSource: 'dashboard',
+          ...(data.eventType ? { eventType: data.eventType } : {}),
+        } as any,
+      },
+    });
+
+    const boss = getBoss();
+    const jobId = await boss.send(
+      'task-queue',
+      {
+        logId: task.id,
+        pipelineId: task.pipelineId,
+        webhookId: task.webhookId ?? undefined,
+        payload: payloadWithMeta,
+      },
+      {
+        priority: 6,
+        retryLimit: 2,
+        retryDelay: 5,
+      }
+    );
+
+    if (!jobId) {
+      throw new Error(`Failed to enqueue manual trigger for pipeline ${pipelineId}`);
+    }
+
+    logger.info('Pipeline manually triggered', {
+      pipelineId,
+      taskId: task.id,
+      jobId,
+      webhookId,
+      eventType: data.eventType ?? null,
+    });
+
+    return {
+      taskId: task.id,
+      jobId,
+      status: 'pending',
+      webhookId,
+    };
+  } catch (error) {
+    logger.error('Failed to trigger pipeline manually', {
+      pipelineId,
+      error: error instanceof Error ? error.message : String(error),
     });
     throw error;
   }

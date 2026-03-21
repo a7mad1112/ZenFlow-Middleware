@@ -318,6 +318,21 @@
   - `webhook_app` started (health initializing)
   - `webhook_dashboard` started on `5173`
 
+### 33. Manual Task Dispatcher UI & API (Complete)
+- Added backend manual dispatch endpoint: `POST /api/pipelines/:id/trigger` in `src/api/routes/pipeline.routes.ts`.
+- Implemented internal dispatcher in `src/api/controllers/pipeline.controller.ts`:
+  - accepts JSON payload (+ optional `eventType` context)
+  - bypasses external webhook validation path
+  - creates task + enqueues pg-boss job for full worker execution (AI/XML/PDF/Email/Discord)
+  - tags manual dispatches using payload metadata `origin: MANUAL`.
+- Worker result metadata now includes task origin (`MANUAL` vs `WEBHOOK`) in `src/worker/engine.ts`.
+- Added dashboard manual trigger UX in `dashboard/src/pages/pipelines-page.tsx`:
+  - Trigger button (Play icon) on each pipeline card
+  - Modal with event type dropdown and JSON payload editor
+  - Run Pipeline action that dispatches to new trigger endpoint
+  - Success feedback with direct link to corresponding log.
+- Added log deep-link support in `dashboard/src/pages/logs-page.tsx` via `?logId=` query param for immediate post-trigger inspection.
+
 ### 25. Logs Pagination Limit Sync (400 Bad Request Fix)
 - Resolved dashboard logs 400 failures caused by query limit mismatch between frontend and backend validation.
 - Updated frontend logs client in `dashboard/src/services/logs.service.ts`:

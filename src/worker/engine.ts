@@ -88,6 +88,17 @@ function hasMetadataSkipFlag(payload: Record<string, unknown>, key: MetadataSkip
   return metadata[key] === true;
 }
 
+function resolveTaskOrigin(payload: Record<string, unknown>): 'MANUAL' | 'WEBHOOK' {
+  const metadata = getRequestMetadata(payload);
+  const origin = metadata.origin;
+
+  if (typeof origin === 'string' && origin.trim().toUpperCase() === 'MANUAL') {
+    return 'MANUAL';
+  }
+
+  return 'WEBHOOK';
+}
+
 function shouldSkipActionForRequest(
   payload: Record<string, unknown>,
   action: SupportedAction
@@ -226,6 +237,7 @@ async function processTask(taskData: TaskPayload): Promise<void> {
     });
 
     const runtimeConfig = getPipelineRuntimeConfig(pipeline.config);
+    const taskOrigin = resolveTaskOrigin(payload);
 
     const aiEnabledByPipeline = isActionEnabledForPipeline(pipeline as any, 'AI_SUMMARIZER');
     const aiSkippedByMetadata = aiEnabledByPipeline && shouldSkipActionForRequest(payload, 'AI_SUMMARIZER');
@@ -233,6 +245,7 @@ async function processTask(taskData: TaskPayload): Promise<void> {
 
     resultDetails = {
       actionType: pipeline.actionType,
+      origin: taskOrigin,
       aiSummary,
       riskLevel,
       xml: null,

@@ -5,20 +5,25 @@ function resolveDiscordWebhookUrl(overrideUrl?: string): string {
   const url = overrideUrl ?? config.discordWebhookUrl ?? process.env.DISCORD_WEBHOOK_URL;
 
   if (!url || url.trim() === '') {
-    throw new Error('Discord Webhook URL is not configured in .env');
+    throw new Error('Missing Webhook URL');
   }
 
   return url;
 }
 
-function buildDiscordPayload(xmlContent: string, aiSummary: string): { content: string } {
-  const formattedXml = xmlContent.trim();
-  const formattedSummary = aiSummary.trim();
+function buildDiscordPayload(aiSummary: string): { content: string } {
+  const formattedSummary = aiSummary.trim() || 'No AI summary available.';
+  const safeSummary = formattedSummary.length > 1400
+    ? `${formattedSummary.slice(0, 1400)}...`
+    : formattedSummary;
 
   return {
-    content:
-      `***AI Insight***\n${formattedSummary}\n\n` +
-      `***New Pipeline Result***\n\`\`\`xml\n${formattedXml}\n\`\`\``,
+    content: [
+      '**AI Insight**',
+      safeSummary,
+      '',
+      'XML output attached as file: result.xml',
+    ].join('\n'),
   };
 }
 
@@ -28,21 +33,34 @@ export async function sendXmlToDiscord(
   webhookUrl?: string
 ): Promise<void> {
   const url = resolveDiscordWebhookUrl(webhookUrl);
-  const payload = buildDiscordPayload(xmlContent, aiSummary);
+  const payload = buildDiscordPayload(aiSummary);
 
-  console.log('Discord URL:', url);
+  const xmlText = xmlContent.trim();
+  const xmlBlob = new Blob([xmlText], { type: 'application/xml' });
+
+  const form = new FormData();
+  form.append('payload_json', JSON.stringify(payload));
+  form.append('file', xmlBlob, 'result.xml');
+
+  logger.debug('Sending message to Discord webhook', {
+    hasOverrideUrl: Boolean(webhookUrl),
+    xmlBytes: Buffer.byteLength(xmlText, 'utf-8'),
+  });
 
   const response = await fetch(url, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(payload),
+    body: form,
   });
 
   if (!response.ok) {
     const body = await response.text();
     const message = `Discord webhook request failed with status ${response.status}`;
+
+    console.error('Discord API error response', {
+      status: response.status,
+      statusText: response.statusText,
+      body,
+    });
 
     logger.error(message, {
       status: response.status,

@@ -345,6 +345,12 @@
   - Tooltip hint per badge (`Triggered from Dashboard` vs `Triggered via API/Webhook`)
   - Added Origin filter (`All`, `Manual`, `Webhook`) for faster audit slicing.
 
+### 35. Discord XML Delivery Hardening (Complete)
+- Updated `src/services/discord.service.ts` to deliver XML as a real file attachment using `FormData` + `payload_json`.
+- Message body now sends concise AI summary in `content` and attaches `result.xml` (`application/xml`) for professional channel output.
+- Added explicit failure fallback for missing webhook URL with clear message: `Missing Webhook URL`.
+- Added terminal-level diagnostics with `console.error` that logs Discord response details (`status`, `statusText`, `body`) for debugging 400/401 and similar API failures.
+
 ### 25. Logs Pagination Limit Sync (400 Bad Request Fix)
 - Resolved dashboard logs 400 failures caused by query limit mismatch between frontend and backend validation.
 - Updated frontend logs client in `dashboard/src/services/logs.service.ts`:

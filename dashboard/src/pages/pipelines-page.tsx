@@ -7,11 +7,15 @@ import { Button } from '../components/ui/button';
 import { Card } from '../components/ui/card';
 import {
   createPipeline,
+  createPipelineWebhook,
   deletePipeline,
+  getPipelineWebhooks,
   getPipelines,
   toggleAction,
   type ActionType,
   type Pipeline,
+  type PipelineWebhook,
+  updatePipelineWebhookStatus,
 } from '../services/pipelines.service';
 
 type LoadState = 'idle' | 'loading' | 'success' | 'error';
@@ -116,6 +120,10 @@ function ToggleButton({
 
 export function PipelinesPage() {
   const [pipelines, setPipelines] = useState<Pipeline[]>([]);
+  const [webhooksByPipeline, setWebhooksByPipeline] = useState<Record<string, PipelineWebhook[]>>({});
+  const [newWebhookByPipeline, setNewWebhookByPipeline] = useState<
+    Record<string, { eventType: string; url: string; isActive: boolean }>
+  >({});
   const [state, setState] = useState<LoadState>('idle');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -127,6 +135,35 @@ export function PipelinesPage() {
     try {
       const data = await getPipelines();
       setPipelines(data);
+
+      const webhookPairs = await Promise.all(
+        data.map(async (pipeline) => ({
+          pipelineId: pipeline.id,
+          webhooks: await getPipelineWebhooks(pipeline.id),
+        })),
+      );
+
+      setWebhooksByPipeline(
+        webhookPairs.reduce<Record<string, PipelineWebhook[]>>((acc, item) => {
+          acc[item.pipelineId] = item.webhooks;
+          return acc;
+        }, {}),
+      );
+
+      setNewWebhookByPipeline((prev) => {
+        const next = { ...prev };
+        for (const pipeline of data) {
+          if (!next[pipeline.id]) {
+            next[pipeline.id] = {
+              eventType: '',
+              url: '',
+              isActive: true,
+            };
+          }
+        }
+        return next;
+      });
+
       setState('success');
     } catch {
       setState('error');
@@ -162,6 +199,69 @@ export function PipelinesPage() {
       await fetchPipelines();
     } catch {
       setErrorMessage(`Failed to update ${action} toggle.`);
+    } finally {
+      setBusyAction(null);
+    }
+  }
+
+  async function handleAddWebhook(pipelineId: string) {
+    const draft = newWebhookByPipeline[pipelineId] ?? {
+      eventType: '',
+      url: '',
+      isActive: true,
+    };
+
+    if (!draft.eventType.trim() || !draft.url.trim()) {
+      setErrorMessage('Event type and target URL are required for webhook creation.');
+      return;
+    }
+
+    setBusyAction(`webhook-create:${pipelineId}`);
+    setErrorMessage(null);
+    try {
+      await createPipelineWebhook(pipelineId, {
+        eventType: draft.eventType.trim(),
+        url: draft.url.trim(),
+        isActive: draft.isActive,
+      });
+
+      const refreshed = await getPipelineWebhooks(pipelineId);
+      setWebhooksByPipeline((prev) => ({
+        ...prev,
+        [pipelineId]: refreshed,
+      }));
+
+      setNewWebhookByPipeline((prev) => ({
+        ...prev,
+        [pipelineId]: {
+          eventType: '',
+          url: '',
+          isActive: true,
+        },
+      }));
+    } catch {
+      setErrorMessage('Failed to add event webhook.');
+    } finally {
+      setBusyAction(null);
+    }
+  }
+
+  async function handleToggleWebhookStatus(
+    pipelineId: string,
+    webhookId: string,
+    nextIsActive: boolean,
+  ) {
+    setBusyAction(`webhook-toggle:${webhookId}`);
+    setErrorMessage(null);
+    try {
+      await updatePipelineWebhookStatus(pipelineId, webhookId, nextIsActive);
+      const refreshed = await getPipelineWebhooks(pipelineId);
+      setWebhooksByPipeline((prev) => ({
+        ...prev,
+        [pipelineId]: refreshed,
+      }));
+    } catch {
+      setErrorMessage('Failed to update webhook status.');
     } finally {
       setBusyAction(null);
     }
@@ -238,6 +338,109 @@ export function PipelinesPage() {
               <ActionFlow actions={buildActionFlow(pipeline.enabledActions)} />
             </div>
 
+            <div className="space-y-3 rounded-lg border border-zinc-800/80 bg-zinc-900/40 p-3">
+              <p className="text-xs uppercase tracking-wide text-zinc-500">Event Webhooks</p>
+
+              <div className="overflow-x-auto rounded-md border border-zinc-800">
+                <table className="w-full min-w-[520px] text-left text-xs">
+                  <thead className="bg-zinc-900 text-zinc-400">
+                    <tr>
+                      <th className="px-3 py-2 font-medium">Event Type</th>
+                      <th className="px-3 py-2 font-medium">Target URL</th>
+                      <th className="px-3 py-2 font-medium">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(webhooksByPipeline[pipeline.id] ?? []).map((webhook) => (
+                      <tr key={webhook.id} className="border-t border-zinc-800 text-zinc-200">
+                        <td className="px-3 py-2 font-mono">{webhook.eventType}</td>
+                        <td className="max-w-[320px] truncate px-3 py-2" title={webhook.url}>
+                          {webhook.url}
+                        </td>
+                        <td className="px-3 py-2">
+                          <div className="flex items-center gap-2">
+                            <Badge variant={webhook.isActive ? 'success' : 'warning'}>
+                              {webhook.isActive ? 'Active' : 'Inactive'}
+                            </Badge>
+                            <ToggleButton
+                              checked={webhook.isActive}
+                              onClick={() =>
+                                handleToggleWebhookStatus(pipeline.id, webhook.id, !webhook.isActive)
+                              }
+                              label={`${webhook.eventType} status`}
+                              disabled={busyAction === `webhook-toggle:${webhook.id}`}
+                            />
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                    {(webhooksByPipeline[pipeline.id] ?? []).length === 0 && (
+                      <tr>
+                        <td colSpan={3} className="px-3 py-3 text-zinc-500">
+                          No event webhooks configured yet.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="grid gap-2 md:grid-cols-[1fr_1.6fr_auto_auto]">
+                <input
+                  value={newWebhookByPipeline[pipeline.id]?.eventType ?? ''}
+                  onChange={(event) =>
+                    setNewWebhookByPipeline((prev) => ({
+                      ...prev,
+                      [pipeline.id]: {
+                        ...(prev[pipeline.id] ?? { eventType: '', url: '', isActive: true }),
+                        eventType: event.target.value,
+                      },
+                    }))
+                  }
+                  placeholder="order.created"
+                  className="rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-xs text-zinc-100"
+                />
+                <input
+                  value={newWebhookByPipeline[pipeline.id]?.url ?? ''}
+                  onChange={(event) =>
+                    setNewWebhookByPipeline((prev) => ({
+                      ...prev,
+                      [pipeline.id]: {
+                        ...(prev[pipeline.id] ?? { eventType: '', url: '', isActive: true }),
+                        url: event.target.value,
+                      },
+                    }))
+                  }
+                  placeholder="https://example.com/webhook"
+                  className="rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-xs text-zinc-100"
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="text-xs"
+                  onClick={() =>
+                    setNewWebhookByPipeline((prev) => ({
+                      ...prev,
+                      [pipeline.id]: {
+                        ...(prev[pipeline.id] ?? { eventType: '', url: '', isActive: true }),
+                        isActive: !(prev[pipeline.id]?.isActive ?? true),
+                      },
+                    }))
+                  }
+                >
+                  {(newWebhookByPipeline[pipeline.id]?.isActive ?? true) ? 'Active' : 'Inactive'}
+                </Button>
+                <Button
+                  type="button"
+                  className="text-xs"
+                  disabled={busyAction === `webhook-create:${pipeline.id}`}
+                  onClick={() => handleAddWebhook(pipeline.id)}
+                >
+                  {busyAction === `webhook-create:${pipeline.id}` ? 'Saving...' : 'Add Event'}
+                </Button>
+              </div>
+            </div>
+
             <div className="grid gap-3 sm:grid-cols-2">
               {actionItems.map((item) => {
                 const isEnabled = pipeline.enabledActions.includes(item.key);
@@ -284,16 +487,38 @@ export function PipelinesPage() {
                 name: '',
                 description: '',
                 actionType: 'CONVERTER' as ActionType,
+                xmlEnabled: true,
+                aiEnabled: false,
+                pdfEnabled: false,
+                emailEnabled: false,
+                discordEnabled: false,
               }}
               validationSchema={pipelineSchema}
               onSubmit={async (values, helpers) => {
                 helpers.setSubmitting(true);
                 setErrorMessage(null);
                 try {
+                  const enabledActions: ActionType[] = [
+                    ...(values.xmlEnabled ? (['CONVERTER'] as const) : []),
+                    ...(values.aiEnabled ? (['AI_SUMMARIZER'] as const) : []),
+                    ...(values.pdfEnabled ? (['PDF'] as const) : []),
+                    ...(values.emailEnabled ? (['EMAIL'] as const) : []),
+                    ...(values.discordEnabled ? (['DISCORD'] as const) : []),
+                  ];
+
+                  if (enabledActions.length === 0) {
+                    setErrorMessage('Select at least one action before creating a pipeline.');
+                    helpers.setSubmitting(false);
+                    return;
+                  }
+
                   await createPipeline({
                     name: values.name.trim(),
                     description: values.description.trim() || undefined,
                     actionType: values.actionType,
+                    enabledActions,
+                    emailEnabled: values.emailEnabled,
+                    discordEnabled: values.discordEnabled,
                   });
                   helpers.resetForm();
                   setIsModalOpen(false);
@@ -305,7 +530,7 @@ export function PipelinesPage() {
                 }
               }}
             >
-              {({ values, errors, touched, handleChange, isSubmitting }) => (
+              {({ values, errors, touched, handleChange, isSubmitting, setFieldValue }) => (
                 <Form className="space-y-4">
                   <div>
                     <label htmlFor="name" className="mb-1 block text-sm text-zinc-300">
@@ -368,12 +593,77 @@ export function PipelinesPage() {
                       Action Preview
                     </p>
                     <ActionFlow
-                      actions={
-                        actionItems
-                          .filter((item) => item.key === values.actionType)
-                          .map((item) => item.label)
-                      }
+                      actions={[
+                        ...(values.xmlEnabled ? ['XML'] : []),
+                        ...(values.aiEnabled ? ['AI'] : []),
+                        ...(values.pdfEnabled ? ['PDF'] : []),
+                        ...(values.emailEnabled ? ['Email'] : []),
+                        ...(values.discordEnabled ? ['Discord'] : []),
+                      ]}
                     />
+                  </div>
+
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="flex items-center justify-between rounded-lg bg-zinc-900 px-3 py-2">
+                      <div>
+                        <p className="text-sm font-medium text-zinc-100">XML</p>
+                        <p className="text-xs text-zinc-400">CONVERTER</p>
+                      </div>
+                      <ToggleButton
+                        checked={values.xmlEnabled}
+                        onClick={() => setFieldValue('xmlEnabled', !values.xmlEnabled)}
+                        label="XML"
+                        disabled={isSubmitting}
+                      />
+                    </div>
+                    <div className="flex items-center justify-between rounded-lg bg-zinc-900 px-3 py-2">
+                      <div>
+                        <p className="text-sm font-medium text-zinc-100">AI</p>
+                        <p className="text-xs text-zinc-400">AI_SUMMARIZER</p>
+                      </div>
+                      <ToggleButton
+                        checked={values.aiEnabled}
+                        onClick={() => setFieldValue('aiEnabled', !values.aiEnabled)}
+                        label="AI"
+                        disabled={isSubmitting}
+                      />
+                    </div>
+                    <div className="flex items-center justify-between rounded-lg bg-zinc-900 px-3 py-2">
+                      <div>
+                        <p className="text-sm font-medium text-zinc-100">PDF</p>
+                        <p className="text-xs text-zinc-400">PDF</p>
+                      </div>
+                      <ToggleButton
+                        checked={values.pdfEnabled}
+                        onClick={() => setFieldValue('pdfEnabled', !values.pdfEnabled)}
+                        label="PDF"
+                        disabled={isSubmitting}
+                      />
+                    </div>
+                    <div className="flex items-center justify-between rounded-lg bg-zinc-900 px-3 py-2">
+                      <div>
+                        <p className="text-sm font-medium text-zinc-100">Email</p>
+                        <p className="text-xs text-zinc-400">EMAIL</p>
+                      </div>
+                      <ToggleButton
+                        checked={values.emailEnabled}
+                        onClick={() => setFieldValue('emailEnabled', !values.emailEnabled)}
+                        label="Email"
+                        disabled={isSubmitting}
+                      />
+                    </div>
+                    <div className="flex items-center justify-between rounded-lg bg-zinc-900 px-3 py-2 sm:col-span-2">
+                      <div>
+                        <p className="text-sm font-medium text-zinc-100">Discord</p>
+                        <p className="text-xs text-zinc-400">DISCORD</p>
+                      </div>
+                      <ToggleButton
+                        checked={values.discordEnabled}
+                        onClick={() => setFieldValue('discordEnabled', !values.discordEnabled)}
+                        label="Discord"
+                        disabled={isSubmitting}
+                      />
+                    </div>
                   </div>
 
                   <div className="flex justify-end gap-2">

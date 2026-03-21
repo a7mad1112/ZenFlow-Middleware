@@ -1,8 +1,8 @@
 import { logger } from '../shared/logger.js';
 import { config } from '../config/env.js';
 
-function resolveDiscordWebhookUrl(): string {
-  const url = config.discordWebhookUrl ?? process.env.DISCORD_WEBHOOK_URL;
+function resolveDiscordWebhookUrl(overrideUrl?: string): string {
+  const url = overrideUrl ?? config.discordWebhookUrl ?? process.env.DISCORD_WEBHOOK_URL;
 
   if (!url || url.trim() === '') {
     throw new Error('Discord Webhook URL is not configured in .env');
@@ -24,9 +24,10 @@ function buildDiscordPayload(xmlContent: string, aiSummary: string): { content: 
 
 export async function sendXmlToDiscord(
   xmlContent: string,
-  aiSummary: string
+  aiSummary: string,
+  webhookUrl?: string
 ): Promise<void> {
-  const url = resolveDiscordWebhookUrl();
+  const url = resolveDiscordWebhookUrl(webhookUrl);
   const payload = buildDiscordPayload(xmlContent, aiSummary);
 
   console.log('Discord URL:', url);

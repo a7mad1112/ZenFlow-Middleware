@@ -260,7 +260,9 @@ export function LogsPage() {
               >
                 <td className="px-4 py-3 font-mono text-xs">{log.id.slice(0, 10)}...</td>
                 <td className="px-4 py-3">{log.pipeline?.name ?? 'N/A'}</td>
-                <td className="px-4 py-3 text-zinc-300">{resolveEventType(log)}</td>
+                <td className="px-4 py-3">
+                  <Badge className="bg-sky-500/15 text-sky-300">{resolveEventType(log)}</Badge>
+                </td>
                 <td className="px-4 py-3">
                   <Badge variant={getStatusVariant(log.status)}>{log.status}</Badge>
                 </td>

@@ -64,6 +64,24 @@ export function setupWebhookRoutes(app: Express): void {
         return;
       }
 
+      if (
+        error instanceof Error &&
+        (error.message.includes('event mismatch') ||
+          error.message.includes('must include eventType') ||
+          error.message.includes('No active webhook configuration found for event type'))
+      ) {
+        logger.warn('Webhook payload/event routing validation failed', {
+          webhookId,
+          error: error.message,
+        });
+        res.status(400).json({
+          success: false,
+          message: error.message,
+          webhookId,
+        });
+        return;
+      }
+
       // Handle inactive webhook (400)
       if (
         error instanceof Error &&

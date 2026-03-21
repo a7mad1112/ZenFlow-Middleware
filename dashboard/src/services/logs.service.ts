@@ -141,16 +141,6 @@ function normalizeActionState(value: unknown): ActionState {
 }
 
 function buildDefaultActions(status: LogStatus): LogActions {
-  if (status === 'completed') {
-    return {
-      xml: 'success',
-      ai: 'success',
-      discord: 'success',
-      pdf: 'success',
-      email: 'success',
-    };
-  }
-
   if (status === 'failed') {
     return {
       xml: 'failed',
@@ -187,6 +177,24 @@ function extractAiSummary(item: Partial<LogDetail>): string | null {
 
 function extractActions(item: Partial<LogDetail>, status: LogStatus): LogActions {
   const defaults = buildDefaultActions(status);
+
+  if (item.result && typeof item.result === 'object' && !Array.isArray(item.result)) {
+    const resultObj = item.result as Record<string, unknown>;
+    const resultActions =
+      resultObj.actions && typeof resultObj.actions === 'object' && !Array.isArray(resultObj.actions)
+        ? (resultObj.actions as Record<string, unknown>)
+        : null;
+
+    if (resultActions) {
+      return {
+        xml: normalizeActionState(resultActions.xml),
+        ai: normalizeActionState(resultActions.ai),
+        discord: normalizeActionState(resultActions.discord),
+        pdf: normalizeActionState(resultActions.pdf),
+        email: normalizeActionState(resultActions.email),
+      };
+    }
+  }
 
   if (item.actions && typeof item.actions === 'object' && !Array.isArray(item.actions)) {
     const actions = item.actions as unknown as Record<string, unknown>;

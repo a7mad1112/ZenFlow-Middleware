@@ -7,6 +7,9 @@ export interface CreatePipelineDTO {
   name: string;
   description?: string;
   actionType: string;
+  enabledActions?: string[];
+  emailEnabled?: boolean;
+  discordEnabled?: boolean;
   config?: Prisma.JsonValue;
 }
 
@@ -42,11 +45,24 @@ export async function createPipeline(
   data: CreatePipelineDTO
 ): Promise<any> {
   try {
+    const normalizedEnabledActions = Array.isArray(data.enabledActions)
+      ? Array.from(
+          new Set(
+            data.enabledActions
+              .filter((action) => typeof action === 'string' && action.trim().length > 0)
+              .map((action) => action.trim().toUpperCase())
+          )
+        )
+      : undefined;
+
     const pipeline = await prisma.pipeline.create({
       data: {
         name: data.name,
         description: data.description,
         actionType: data.actionType as any,
+        enabledActions: normalizedEnabledActions,
+        emailEnabled: data.emailEnabled,
+        discordEnabled: data.discordEnabled,
         config: data.config || undefined,
       },
     });

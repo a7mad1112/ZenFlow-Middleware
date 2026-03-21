@@ -66,34 +66,46 @@ function buildOrderConfirmationTemplate(payload: any): string {
 interface SendOrderConfirmationOptions {
   attachment?: Buffer;
   aiSummary?: string;
+  smtpConfig?: {
+    host?: string;
+    port?: number;
+    secure?: boolean;
+    user?: string;
+    pass?: string;
+    from?: string;
+  };
 }
 
 class EmailService {
   private transporterInstance: Transporter | null = null;
 
-  private getTransporter(): Transporter {
-    if (this.transporterInstance) {
+  private getTransporter(smtpConfig?: SendOrderConfirmationOptions['smtpConfig']): Transporter {
+    if (!smtpConfig && this.transporterInstance) {
       return this.transporterInstance;
     }
 
-    const user = config.smtpUser;
-    const pass = config.smtpPass;
+    const user = smtpConfig?.user ?? config.smtpUser;
+    const pass = smtpConfig?.pass ?? config.smtpPass;
 
     if (!user || !pass) {
       throw new Error('SMTP credentials are not configured. Set SMTP_USER and SMTP_PASS in .env');
     }
 
-    this.transporterInstance = nodemailer.createTransport({
-      host: config.smtpHost,
-      port: config.smtpPort,
-      secure: config.smtpSecure,
+    const transporter = nodemailer.createTransport({
+      host: smtpConfig?.host ?? config.smtpHost,
+      port: smtpConfig?.port ?? config.smtpPort,
+      secure: smtpConfig?.secure ?? config.smtpSecure,
       auth: {
         user,
         pass,
       },
     });
 
-    return this.transporterInstance;
+    if (!smtpConfig) {
+      this.transporterInstance = transporter;
+    }
+
+    return transporter;
   }
 
   async sendOrderConfirmation(
@@ -101,8 +113,8 @@ class EmailService {
     payload: any,
     options?: SendOrderConfirmationOptions
   ): Promise<void> {
-    const transporter = this.getTransporter();
-    const from = config.emailFrom || config.smtpUser;
+    const transporter = this.getTransporter(options?.smtpConfig);
+    const from = options?.smtpConfig?.from || config.emailFrom || options?.smtpConfig?.user || config.smtpUser;
 
     if (!from) {
       throw new Error('Email sender is not configured. Set EMAIL_FROM or SMTP_USER in .env');

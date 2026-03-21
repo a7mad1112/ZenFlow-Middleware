@@ -260,6 +260,64 @@
   - latest failed task error extraction for explicit failure quoting.
 - Added frontend markdown rendering support in `dashboard/src/components/chat/ChatWidget.tsx` using `react-markdown` + `remark-gfm` so bold text, tables, and blockquotes render properly.
 
+### 29. Pipeline Creation Defaults Fix (Complete)
+- Fixed backend create flow to persist user-selected actions instead of falling back to Prisma defaults:
+  - `src/api/routes/pipeline.routes.ts` now accepts `enabledActions`, `emailEnabled`, and `discordEnabled` in `POST /api/pipelines`.
+  - `src/api/controllers/pipeline.controller.ts` now maps and normalizes these fields into Prisma `create`.
+- Fixed dashboard create modal payload to send full action configuration:
+  - `dashboard/src/pages/pipelines-page.tsx` now includes create-time action toggles for XML, AI, PDF, Email, and Discord.
+  - Form submission now sends full `enabledActions` plus channel booleans.
+  - Added guard to prevent creating pipelines with zero enabled actions.
+- Updated create input contract in `dashboard/src/services/pipelines.service.ts` to require full action configuration payload.
+
+### 30. Worker Reality Sync + Event-Based Webhook Routing (Complete)
+- Refactored worker execution in `src/worker/engine.ts` to persist real artifacts and action outcomes:
+  - XML output is saved into task result (`xml`, `xmlOutput`).
+  - PDF output metadata is saved (`sizeBytes`, `contentBase64`, `pdfUrl` data URI).
+  - Action-level statuses are persisted in structured `actions` map (`xml`, `ai`, `pdf`, `email`, `discord`) with real success/failed/skipped states.
+  - Removed placeholder/mock success behavior for primary action execution path.
+- Added pipeline-scoped delivery config support:
+  - Discord sender now accepts webhook override (`src/services/discord.service.ts`).
+  - Email sender now accepts per-request SMTP override (`src/services/email.service.ts`).
+  - Worker reads overrides from `pipeline.config` and records config source in result metadata.
+- Implemented event-based webhook routing in ingestion:
+  - `src/api/controllers/webhook.controller.ts` now extracts incoming event from `eventType`, `type`, or `event`.
+  - For pipeline-level ingestion (`POST /api/webhooks/:id` where `id` is pipeline), webhook configuration is selected by matching `eventType` and `isActive`.
+  - Added explicit validation for missing event type and mismatch cases.
+- Hardened webhook route error responses in `src/api/routes/webhook.routes.ts` for event-routing validation failures.
+- Updated dashboard sync path:
+  - `src/api/controllers/dashboard.controller.ts` now exposes normalized `actions`, `xmlOutput`, and rich PDF metadata to frontend.
+  - `dashboard/src/services/logs.service.ts` now avoids false all-success defaults and reads persisted action states from result.
+  - `dashboard/src/components/logs/LogDetailDrawer.tsx` now shows true timeline states, actual XML output, and openable generated PDF content when available.
+
+### 31. Visual Event Webhook Management UI (Complete)
+- Added Event Webhooks management section in `dashboard/src/pages/pipelines-page.tsx` under each pipeline card.
+- UI now supports row-based event configuration with:
+  - Event Type
+  - Target URL
+  - Active/Inactive status toggle
+- API integration added in `dashboard/src/services/pipelines.service.ts`:
+  - `getPipelineWebhooks(pipelineId)`
+  - `createPipelineWebhook(pipelineId, payload)`
+  - `updatePipelineWebhookStatus(pipelineId, webhookId, isActive)`
+- Backend support added for status toggle persistence:
+  - `PATCH /api/pipelines/:id/webhooks/:webhookId` in `src/api/routes/pipeline.routes.ts`
+  - controller handler in `src/api/controllers/webhook.controller.ts`
+- Logs page now displays event type as a blue badge in `dashboard/src/pages/logs-page.tsx`, making event-based routing visible in monitoring view.
+
+### 32. Docker Build Recovery Runbook (Complete)
+- Resolved Docker BuildKit snapshot corruption error during dashboard image export:
+  - `failed to prepare extraction snapshot ... parent snapshot ... does not exist`
+- Recovery steps validated:
+  1. `docker builder prune -af`
+  2. `docker buildx prune -af`
+  3. `docker compose build --no-cache dashboard`
+  4. `docker compose down && docker compose up --build -d`
+- Verified services are up after rebuild:
+  - `webhook_postgres` healthy
+  - `webhook_app` started (health initializing)
+  - `webhook_dashboard` started on `5173`
+
 ### 25. Logs Pagination Limit Sync (400 Bad Request Fix)
 - Resolved dashboard logs 400 failures caused by query limit mismatch between frontend and backend validation.
 - Updated frontend logs client in `dashboard/src/services/logs.service.ts`:

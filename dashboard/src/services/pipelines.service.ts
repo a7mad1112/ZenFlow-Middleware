@@ -15,10 +15,23 @@ export interface Pipeline {
   updatedAt: string;
 }
 
+export interface PipelineWebhook {
+  id: string;
+  pipelineId: string;
+  eventType: string;
+  url: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface CreatePipelineInput {
   name: string;
   description?: string;
   actionType: ActionType;
+  enabledActions: ActionType[];
+  discordEnabled: boolean;
+  emailEnabled: boolean;
 }
 
 export interface UpdatePipelineInput {
@@ -28,6 +41,12 @@ export interface UpdatePipelineInput {
   enabledActions?: ActionType[];
   discordEnabled?: boolean;
   emailEnabled?: boolean;
+  isActive?: boolean;
+}
+
+export interface CreatePipelineWebhookInput {
+  eventType: string;
+  url: string;
   isActive?: boolean;
 }
 
@@ -54,6 +73,18 @@ function normalizePipeline(input: Partial<Pipeline>): Pipeline {
     enabledActions: enabled,
     discordEnabled: Boolean(input.discordEnabled),
     emailEnabled: Boolean(input.emailEnabled),
+    isActive: Boolean(input.isActive),
+    createdAt: String(input.createdAt ?? new Date(0).toISOString()),
+    updatedAt: String(input.updatedAt ?? new Date(0).toISOString()),
+  };
+}
+
+function normalizeWebhook(input: Partial<PipelineWebhook>): PipelineWebhook {
+  return {
+    id: String(input.id ?? ''),
+    pipelineId: String(input.pipelineId ?? ''),
+    eventType: String(input.eventType ?? ''),
+    url: String(input.url ?? ''),
     isActive: Boolean(input.isActive),
     createdAt: String(input.createdAt ?? new Date(0).toISOString()),
     updatedAt: String(input.updatedAt ?? new Date(0).toISOString()),
@@ -109,4 +140,33 @@ export async function toggleAction(
 
   const response = await apiClient.patch<ApiEnvelope<Pipeline>>(`/api/pipelines/${pipelineId}/actions`, payload);
   return normalizePipeline(response.data.data);
+}
+
+export async function getPipelineWebhooks(pipelineId: string): Promise<PipelineWebhook[]> {
+  const response = await apiClient.get<ApiEnvelope<PipelineWebhook[]>>(`/api/pipelines/${pipelineId}/webhooks`);
+  const items = Array.isArray(response.data.data) ? response.data.data : [];
+  return items.map((item) => normalizeWebhook(item));
+}
+
+export async function createPipelineWebhook(
+  pipelineId: string,
+  data: CreatePipelineWebhookInput,
+): Promise<PipelineWebhook> {
+  const response = await apiClient.post<ApiEnvelope<PipelineWebhook>>(
+    `/api/pipelines/${pipelineId}/webhooks`,
+    data,
+  );
+  return normalizeWebhook(response.data.data);
+}
+
+export async function updatePipelineWebhookStatus(
+  pipelineId: string,
+  webhookId: string,
+  isActive: boolean,
+): Promise<PipelineWebhook> {
+  const response = await apiClient.patch<ApiEnvelope<PipelineWebhook>>(
+    `/api/pipelines/${pipelineId}/webhooks/${webhookId}`,
+    { isActive },
+  );
+  return normalizeWebhook(response.data.data);
 }

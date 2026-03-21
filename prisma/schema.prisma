@@ -64,6 +64,7 @@ model Webhook {
   tasks Task[]
 
   @@index([pipelineId])
+  @@index([pipelineId, eventType, isActive])
   @@map("webhooks")
 }
 

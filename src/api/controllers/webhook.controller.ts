@@ -8,6 +8,15 @@ export interface IngestWebhookDTO {
   payload: Record<string, unknown>;
 }
 
+function extractIncomingEventType(payload: Record<string, unknown>): string | null {
+  const candidate = payload.eventType ?? payload.type ?? payload.event;
+  if (typeof candidate !== 'string' || candidate.trim() === '') {
+    return null;
+  }
+
+  return candidate.trim();
+}
+
 /**
  * Ingest a webhook event and queue it for processing
  * @param id - The webhook ID or pipeline ID from the URL
@@ -21,6 +30,7 @@ export async function ingestWebhook(
   try {
     let webhookId: string | undefined;
     let pipelineId: string | undefined;
+    const incomingEventType = extractIncomingEventType(data.payload);
 
     // 1) Try Webhook table first
     const webhook = await prisma.webhook.findUnique({
@@ -31,6 +41,17 @@ export async function ingestWebhook(
       if (!webhook.isActive) {
         logger.warn('Webhook is inactive', { webhookId: webhook.id });
         throw new Error(`Webhook ${webhook.id} is inactive`);
+      }
+
+      if (incomingEventType && webhook.eventType !== incomingEventType) {
+        logger.warn('Webhook event type mismatch', {
+          webhookId: webhook.id,
+          configuredEventType: webhook.eventType,
+          incomingEventType,
+        });
+        throw new Error(
+          `Webhook event mismatch: expected ${webhook.eventType}, got ${incomingEventType}`
+        );
       }
 
       webhookId = webhook.id;
@@ -55,6 +76,34 @@ export async function ingestWebhook(
       }
 
       pipelineId = pipeline.id;
+
+      if (!incomingEventType) {
+        logger.warn('Incoming payload missing event type for pipeline-level webhook routing', {
+          pipelineId,
+        });
+        throw new Error('Incoming payload must include eventType, type, or event for routing');
+      }
+
+      const webhookConfig = await prisma.webhook.findFirst({
+        where: {
+          pipelineId,
+          eventType: incomingEventType,
+          isActive: true,
+        },
+        orderBy: {
+          createdAt: 'desc',
+        },
+      });
+
+      if (!webhookConfig) {
+        logger.warn('No active webhook configuration found for event type', {
+          pipelineId,
+          incomingEventType,
+        });
+        throw new Error(`No active webhook configuration found for event type ${incomingEventType}`);
+      }
+
+      webhookId = webhookConfig.id;
       logger.info('Pipeline found for direct ingestion', { pipelineId });
     }
 
@@ -168,7 +217,7 @@ export async function ingestWebhook(
  */
 export async function createWebhook(
   pipelineId: string,
-  data: { eventType: string; url: string }
+  data: { eventType: string; url: string; isActive?: boolean }
 ): Promise<any> {
   try {
     const pipeline = await prisma.pipeline.findUnique({
@@ -185,6 +234,7 @@ export async function createWebhook(
         pipelineId,
         eventType: data.eventType,
         url: data.url,
+        isActive: data.isActive,
       },
     });
 
@@ -197,6 +247,45 @@ export async function createWebhook(
     return webhook;
   } catch (error) {
     logger.error('Failed to create webhook', {
+      pipelineId,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    throw error;
+  }
+}
+
+export async function updateWebhookStatus(
+  pipelineId: string,
+  webhookId: string,
+  isActive: boolean
+): Promise<any> {
+  try {
+    const webhook = await prisma.webhook.findFirst({
+      where: {
+        id: webhookId,
+        pipelineId,
+      },
+    });
+
+    if (!webhook) {
+      throw new Error(`Webhook ${webhookId} not found for pipeline ${pipelineId}`);
+    }
+
+    const updated = await prisma.webhook.update({
+      where: { id: webhookId },
+      data: { isActive },
+    });
+
+    logger.info('Webhook status updated', {
+      webhookId,
+      pipelineId,
+      isActive,
+    });
+
+    return updated;
+  } catch (error) {
+    logger.error('Failed to update webhook status', {
+      webhookId,
       pipelineId,
       error: error instanceof Error ? error.message : String(error),
     });

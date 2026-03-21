@@ -11,7 +11,11 @@ import {
   deletePipeline,
   getSubscribersByPipelineId,
 } from '../controllers/pipeline.controller.js';
-import { createWebhook, getWebhooksByPipelineId } from '../controllers/webhook.controller.js';
+import {
+  createWebhook,
+  getWebhooksByPipelineId,
+  updateWebhookStatus,
+} from '../controllers/webhook.controller.js';
 import { logger } from '../../shared/logger.js';
 
 // Validation schemas
@@ -21,6 +25,11 @@ const createPipelineSchema = z.object({
   actionType: z.enum(['CONVERTER', 'EMAIL', 'DISCORD', 'PDF', 'AI_SUMMARIZER'], {
     errorMap: () => ({ message: 'Invalid actionType' }),
   }),
+  enabledActions: z
+    .array(z.enum(['CONVERTER', 'EMAIL', 'DISCORD', 'PDF', 'AI_SUMMARIZER']))
+    .optional(),
+  emailEnabled: z.boolean().optional(),
+  discordEnabled: z.boolean().optional(),
   config: z.record(z.unknown()).optional(),
 });
 
@@ -41,6 +50,11 @@ const addSubscriberSchema = z.object({
 const createWebhookSchema = z.object({
   eventType: z.string().min(1, 'eventType is required'),
   url: z.string().url('url must be a valid URL'),
+  isActive: z.boolean().optional(),
+});
+
+const updateWebhookStatusSchema = z.object({
+  isActive: z.boolean(),
 });
 
 type CreatePipelineRequest = z.infer<typeof createPipelineSchema>;
@@ -62,6 +76,9 @@ export function setupPipelineRoutes(app: Express): void {
         name: data.name,
         description: data.description,
         actionType: data.actionType,
+        enabledActions: data.enabledActions,
+        emailEnabled: data.emailEnabled,
+        discordEnabled: data.discordEnabled,
         config: data.config as any,
       });
 
@@ -560,6 +577,7 @@ export function setupPipelineRoutes(app: Express): void {
         const webhook = await createWebhook(id, {
           eventType: data.eventType,
           url: data.url,
+          isActive: data.isActive,
         });
 
         logger.info('POST /api/pipelines/:id/webhooks - Webhook created', {
@@ -588,6 +606,52 @@ export function setupPipelineRoutes(app: Express): void {
           res.status(404).json({
             success: false,
             message: 'Pipeline not found',
+          });
+        } else {
+          res.status(500).json({
+            success: false,
+            message: 'Internal server error',
+          });
+        }
+      }
+    }
+  );
+
+  /**
+   * PATCH /api/pipelines/:id/webhooks/:webhookId
+   * Toggle webhook active/inactive status
+   */
+  app.patch(
+    '/api/pipelines/:id/webhooks/:webhookId',
+    async (req: Request, res: Response): Promise<void> => {
+      try {
+        const { id, webhookId } = req.params;
+        const data = updateWebhookStatusSchema.parse(req.body);
+
+        const webhook = await updateWebhookStatus(id, webhookId, data.isActive);
+
+        res.status(200).json({
+          success: true,
+          message: 'Webhook status updated successfully',
+          data: webhook,
+        });
+      } catch (error) {
+        logger.error('PATCH /api/pipelines/:id/webhooks/:webhookId failed', {
+          error: error instanceof Error ? error.message : String(error),
+          pipeline_id: req.params.id,
+          webhook_id: req.params.webhookId,
+        });
+
+        if (error instanceof z.ZodError) {
+          res.status(400).json({
+            success: false,
+            message: 'Validation error',
+            errors: error.errors,
+          });
+        } else if (error instanceof Error && error.message.includes('not found')) {
+          res.status(404).json({
+            success: false,
+            message: 'Webhook not found',
           });
         } else {
           res.status(500).json({

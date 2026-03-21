@@ -6,25 +6,81 @@ export type RiskLevel = 'Low' | 'Medium' | 'High';
 
 type NormalizedResult = {
   xml: string | null;
+  xmlOutput: string | null;
   aiSummary: string | null;
+  actions: {
+    xml: 'success' | 'failed' | 'pending' | 'skipped';
+    ai: 'success' | 'failed' | 'pending' | 'skipped';
+    discord: 'success' | 'failed' | 'pending' | 'skipped';
+    pdf: 'success' | 'failed' | 'pending' | 'skipped';
+    email: 'success' | 'failed' | 'pending' | 'skipped';
+  };
   pdfInfo: {
     generated: boolean;
     sizeBytes: number | null;
     path: string | null;
     error: string | null;
+    contentBase64: string | null;
+  };
+  email: {
+    status: string | null;
+    attempted: boolean;
+    sent: boolean;
+    to: string | null;
+    error: string | null;
+  };
+  discord: {
+    status: string | null;
+    attempted: boolean;
+    sent: boolean;
+    error: string | null;
   };
   raw: unknown;
 };
+
+function normalizeActionState(value: unknown): 'success' | 'failed' | 'pending' | 'skipped' {
+  if (typeof value !== 'string') {
+    return 'pending';
+  }
+
+  const normalized = value.toLowerCase();
+  if (normalized === 'success') return 'success';
+  if (normalized === 'failed') return 'failed';
+  if (normalized === 'skipped') return 'skipped';
+  return 'pending';
+}
 
 function normalizeResultForDashboard(result: unknown): NormalizedResult {
   if (typeof result === 'string') {
     return {
       xml: result,
+      xmlOutput: result,
       aiSummary: null,
+      actions: {
+        xml: 'success',
+        ai: 'pending',
+        discord: 'pending',
+        pdf: 'pending',
+        email: 'pending',
+      },
       pdfInfo: {
         generated: false,
         sizeBytes: null,
         path: null,
+        error: null,
+        contentBase64: null,
+      },
+      email: {
+        status: null,
+        attempted: false,
+        sent: false,
+        to: null,
+        error: null,
+      },
+      discord: {
+        status: null,
+        attempted: false,
+        sent: false,
         error: null,
       },
       raw: result,
@@ -45,14 +101,56 @@ function normalizeResultForDashboard(result: unknown): NormalizedResult {
           ? pdfObj.size
           : null;
 
+    const actionsObj =
+      obj.actions && typeof obj.actions === 'object' && !Array.isArray(obj.actions)
+        ? (obj.actions as Record<string, unknown>)
+        : null;
+
+    const emailObj =
+      obj.email && typeof obj.email === 'object' && !Array.isArray(obj.email)
+        ? (obj.email as Record<string, unknown>)
+        : null;
+
+    const discordObj =
+      obj.discord && typeof obj.discord === 'object' && !Array.isArray(obj.discord)
+        ? (obj.discord as Record<string, unknown>)
+        : null;
+
     const normalized: NormalizedResult = {
       xml: typeof obj.xml === 'string' ? obj.xml : null,
+      xmlOutput: typeof obj.xmlOutput === 'string' ? obj.xmlOutput : typeof obj.xml === 'string' ? obj.xml : null,
       aiSummary: typeof obj.aiSummary === 'string' ? obj.aiSummary : null,
+      actions: {
+        xml: normalizeActionState(actionsObj?.xml),
+        ai: normalizeActionState(actionsObj?.ai),
+        discord: normalizeActionState(actionsObj?.discord),
+        pdf: normalizeActionState(actionsObj?.pdf),
+        email: normalizeActionState(actionsObj?.email),
+      },
       pdfInfo: {
         generated: Boolean(pdfObj?.generated || sizeBytes),
         sizeBytes,
-        path: typeof pdfObj?.path === 'string' ? pdfObj.path : null,
+        path:
+          typeof pdfObj?.path === 'string'
+            ? pdfObj.path
+            : typeof pdfObj?.url === 'string'
+              ? pdfObj.url
+              : null,
         error: typeof pdfObj?.error === 'string' ? pdfObj.error : null,
+        contentBase64: typeof pdfObj?.contentBase64 === 'string' ? pdfObj.contentBase64 : null,
+      },
+      email: {
+        status: typeof emailObj?.status === 'string' ? emailObj.status : null,
+        attempted: Boolean(emailObj?.attempted),
+        sent: Boolean(emailObj?.sent),
+        to: typeof emailObj?.to === 'string' ? emailObj.to : null,
+        error: typeof emailObj?.error === 'string' ? emailObj.error : null,
+      },
+      discord: {
+        status: typeof discordObj?.status === 'string' ? discordObj.status : null,
+        attempted: Boolean(discordObj?.attempted),
+        sent: Boolean(discordObj?.sent),
+        error: typeof discordObj?.error === 'string' ? discordObj.error : null,
       },
       raw: result,
     };
@@ -62,11 +160,33 @@ function normalizeResultForDashboard(result: unknown): NormalizedResult {
 
   return {
     xml: null,
+    xmlOutput: null,
     aiSummary: null,
+    actions: {
+      xml: 'pending',
+      ai: 'pending',
+      discord: 'pending',
+      pdf: 'pending',
+      email: 'pending',
+    },
     pdfInfo: {
       generated: false,
       sizeBytes: null,
       path: null,
+      error: null,
+      contentBase64: null,
+    },
+    email: {
+      status: null,
+      attempted: false,
+      sent: false,
+      to: null,
+      error: null,
+    },
+    discord: {
+      status: null,
+      attempted: false,
+      sent: false,
       error: null,
     },
     raw: result,
@@ -241,6 +361,8 @@ export async function getDashboardLogs(params: {
       return {
         ...task,
         result: normalizedResult,
+        aiSummary: normalizedResult.aiSummary,
+        actions: normalizedResult.actions,
         riskLevel: taskRisk,
       };
     });
@@ -284,6 +406,8 @@ export async function getDashboardLogs(params: {
       return {
         ...task,
         result: normalizedResult,
+        aiSummary: normalizedResult.aiSummary,
+        actions: normalizedResult.actions,
         riskLevel: extractRiskLevelFromResult(task.result),
       };
     })
@@ -322,6 +446,8 @@ export async function getDashboardLogDetail(id: string): Promise<Record<string, 
   return {
     ...task,
     result: normalizedResult,
+    aiSummary: normalizedResult.aiSummary,
+    actions: normalizedResult.actions,
     riskLevel,
   };
 }

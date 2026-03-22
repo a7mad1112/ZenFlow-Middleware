@@ -8,7 +8,7 @@ import { LogDetailDrawer } from '../components/logs/LogDetailDrawer';
 import { getLogById, getLogs, type LogDetail, type LogListItem } from '../services/logs.service';
 
 type LoadState = 'idle' | 'loading' | 'success' | 'error';
-type StatusFilter = 'all' | 'completed' | 'failed' | 'pending';
+type StatusFilter = 'all' | 'completed' | 'failed' | 'pending' | 'stuck';
 type RiskFilter = 'all' | 'High' | 'Medium' | 'Low';
 type OriginFilter = 'all' | 'MANUAL' | 'WEBHOOK';
 const LOGS_POLL_LIMIT = 100;
@@ -23,6 +23,7 @@ function formatDate(value: string): string {
 
 function getStatusVariant(status: string): 'success' | 'danger' | 'warning' {
   if (status === 'completed') return 'success';
+  if (status === 'stuck') return 'danger';
   if (status === 'failed') return 'danger';
   return 'warning';
 }
@@ -206,6 +207,7 @@ export function LogsPage() {
               <option value="all">All</option>
               <option value="completed">Completed</option>
               <option value="failed">Failed</option>
+              <option value="stuck">Stuck</option>
               <option value="pending">Pending</option>
             </select>
           </div>

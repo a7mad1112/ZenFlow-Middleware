@@ -12,23 +12,23 @@ Goal: Prevent accidental data loss and improve user confidence.
 Phase 1: Reliability & Advanced Retry Logic
 Goal: Ensure the system is resilient to partial failures and cost-efficient.
 
-[ ] Partial/Atomic Retry Mechanism:
+[x] Partial/Atomic Retry Mechanism:
 
-Refactor the Worker Engine to support re-running only failed actions (e.g., if XML/AI succeeded but Email failed, retry only the Email).
+[x] Refactor the Worker Engine to support re-running only failed actions (e.g., if XML/AI succeeded but Email failed, retry only the Email).
 
-Persist individual action states (success, failed, skipped) within the task metadata to prevent redundant API calls or double-billing on Gemini tokens.
+[x] Persist individual action states (success, failed, skipped) within the task metadata to prevent redundant API calls or double-billing on Gemini tokens.
 
-[ ] Smart Exponential Backoff:
+[x] Smart Exponential Backoff:
 
-Configure pg-boss with an escalating retry strategy: 10s → 20s → 40s → 1m → 2m.
+[x] Configure pg-boss with an escalating retry strategy: 10s → 20s → 40s → 1m → 2m.
 
 This ensures quick recovery for minor network blips while backing off to protect resources.
 
-[ ] Dead Letter Queue (DLQ) & Recovery:
+[x] Dead Letter Queue (DLQ) & Recovery:
 
-Add a "Stuck Tasks" tab in the Dashboard for jobs that exhausted all 5 retries.
+[x] Add a "Stuck Tasks" tab in the Dashboard for jobs that exhausted all 5 retries.
 
-Implement a "Manual Re-queue" button to force a final attempt after fixing external issues (like updating an expired API key).
+[x] Implement a "Manual Re-queue" button to force a final attempt after fixing external issues (like updating an expired API key).
 
 Phase 2: Outbound Connectors (Subscriber Delivery)
 Goal: Transform the platform into a Middleware for programmatic systems.

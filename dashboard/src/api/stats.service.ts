@@ -8,6 +8,7 @@ export interface DashboardStats {
     processing: number;
     completed: number;
     failed: number;
+    stuck: number;
   };
   riskDistribution: {
     Low: number;
@@ -30,6 +31,7 @@ function normalizeStats(stats: Partial<DashboardStats>): DashboardStats {
       processing: stats.statusCounts?.processing ?? 0,
       completed: stats.statusCounts?.completed ?? 0,
       failed: stats.statusCounts?.failed ?? 0,
+      stuck: stats.statusCounts?.stuck ?? 0,
     },
     riskDistribution: {
       Low: stats.riskDistribution?.Low ?? 0,

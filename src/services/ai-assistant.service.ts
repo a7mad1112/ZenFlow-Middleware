@@ -25,6 +25,7 @@ export interface AssistantSnapshot {
       processing: number;
       completed: number;
       failed: number;
+      stuck: number;
     };
     riskDistribution: {
       Low: number;
@@ -47,6 +48,7 @@ export interface AssistantSnapshot {
       processing: number;
       completed: number;
       failed: number;
+      stuck: number;
     };
   }>;
   recentLogs: Array<{
@@ -204,6 +206,7 @@ export async function buildAssistantSnapshot(): Promise<AssistantSnapshot> {
     processing: 0,
     completed: 0,
     failed: 0,
+    stuck: 0,
   };
 
   for (const row of groupedStatuses) {
@@ -212,6 +215,7 @@ export async function buildAssistantSnapshot(): Promise<AssistantSnapshot> {
     if (normalized === 'processing') statusCounts.processing = row._count.status;
     if (normalized === 'completed') statusCounts.completed = row._count.status;
     if (normalized === 'failed') statusCounts.failed = row._count.status;
+    if (normalized === 'stuck') statusCounts.stuck = row._count.status;
   }
 
   const riskDistribution = {
@@ -228,7 +232,11 @@ export async function buildAssistantSnapshot(): Promise<AssistantSnapshot> {
   }
 
   const totalTasks =
-    statusCounts.pending + statusCounts.processing + statusCounts.completed + statusCounts.failed;
+    statusCounts.pending +
+    statusCounts.processing +
+    statusCounts.completed +
+    statusCounts.failed +
+    statusCounts.stuck;
 
   const successRate =
     totalTasks === 0 ? 0 : Number(((statusCounts.completed / totalTasks) * 100).toFixed(2));
@@ -242,6 +250,7 @@ export async function buildAssistantSnapshot(): Promise<AssistantSnapshot> {
       processing: number;
       completed: number;
       failed: number;
+      stuck: number;
     }
   >();
 
@@ -251,6 +260,7 @@ export async function buildAssistantSnapshot(): Promise<AssistantSnapshot> {
       processing: 0,
       completed: 0,
       failed: 0,
+      stuck: 0,
     };
 
     const normalized = row.status.toLowerCase();
@@ -258,6 +268,7 @@ export async function buildAssistantSnapshot(): Promise<AssistantSnapshot> {
     if (normalized === 'processing') existing.processing = row._count.status;
     if (normalized === 'completed') existing.completed = row._count.status;
     if (normalized === 'failed') existing.failed = row._count.status;
+    if (normalized === 'stuck') existing.stuck = row._count.status;
 
     taskGroupMap.set(row.pipelineId, existing);
   }
@@ -268,6 +279,7 @@ export async function buildAssistantSnapshot(): Promise<AssistantSnapshot> {
       processing: 0,
       completed: 0,
       failed: 0,
+      stuck: 0,
     };
 
     return {
@@ -280,11 +292,12 @@ export async function buildAssistantSnapshot(): Promise<AssistantSnapshot> {
       discordEnabled: pipeline.discordEnabled,
       updatedAt: pipeline.updatedAt.toISOString(),
       taskCounts: {
-        total: grouped.pending + grouped.processing + grouped.completed + grouped.failed,
+        total: grouped.pending + grouped.processing + grouped.completed + grouped.failed + grouped.stuck,
         pending: grouped.pending,
         processing: grouped.processing,
         completed: grouped.completed,
         failed: grouped.failed,
+        stuck: grouped.stuck,
       },
     };
   });

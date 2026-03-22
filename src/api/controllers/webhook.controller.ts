@@ -118,7 +118,7 @@ export async function ingestWebhook(
         status: 'pending',
         payload: data.payload as any,
         attempts: 0,
-        maxAttempts: 3,
+        maxAttempts: 5,
       },
     });
 
@@ -152,8 +152,9 @@ export async function ingestWebhook(
         },
         {
           priority: 5,
-          retryLimit: 2,
-          retryDelay: 5,
+          retryLimit: 4,
+          retryDelay: 10,
+          retryBackoff: true,
         }
       );
       
@@ -392,8 +393,9 @@ export async function retryTask(taskId: string): Promise<{
       },
       {
         priority: 6,
-        retryLimit: 2,
-        retryDelay: 5,
+        retryLimit: 4,
+        retryDelay: 10,
+        retryBackoff: true,
       }
     );
 
@@ -405,7 +407,9 @@ export async function retryTask(taskId: string): Promise<{
       where: { id: task.id },
       data: {
         status: 'pending',
+        attempts: 0,
         error: null,
+        maxAttempts: 5,
         completedAt: null,
         updatedAt: new Date(),
       },

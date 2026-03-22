@@ -13,7 +13,7 @@ export interface WebhookPayload {
 export interface Task {
   id: string;
   webhook_id: string;
-  status: 'pending' | 'processing' | 'completed' | 'failed';
+  status: 'pending' | 'processing' | 'completed' | 'failed' | 'stuck';
   payload: WebhookPayload;
   attempts: number;
   max_attempts: number;

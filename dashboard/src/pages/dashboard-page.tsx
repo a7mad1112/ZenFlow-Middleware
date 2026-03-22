@@ -22,6 +22,7 @@ type LoadState = 'idle' | 'loading' | 'success' | 'error';
 const statusColors = {
   Completed: '#34d399',
   Failed: '#f43f5e',
+  Stuck: '#e11d48',
   Pending: '#38bdf8',
   Processing: '#60a5fa',
 };
@@ -92,6 +93,7 @@ export function DashboardPage() {
     return [
       { name: 'Completed', value: stats.statusCounts.completed },
       { name: 'Failed', value: stats.statusCounts.failed },
+      { name: 'Stuck', value: stats.statusCounts.stuck },
       { name: 'Pending', value: stats.statusCounts.pending },
       { name: 'Processing', value: stats.statusCounts.processing },
     ];
@@ -155,6 +157,7 @@ export function DashboardPage() {
               <Badge variant="warning">Processing: {stats.statusCounts.processing}</Badge>
               <Badge variant="success">Completed: {stats.statusCounts.completed}</Badge>
               <Badge variant="danger">Failed: {stats.statusCounts.failed}</Badge>
+              <Badge variant="danger">Stuck: {stats.statusCounts.stuck}</Badge>
             </div>
           </Card>
 

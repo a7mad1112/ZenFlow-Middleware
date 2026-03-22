@@ -266,6 +266,7 @@ export async function getDashboardStats(): Promise<{
     processing: number;
     completed: number;
     failed: number;
+    stuck: number;
   };
   riskDistribution: {
     Low: number;
@@ -293,6 +294,7 @@ export async function getDashboardStats(): Promise<{
     processing: 0,
     completed: 0,
     failed: 0,
+    stuck: 0,
   };
 
   for (const row of groupedStatuses) {
@@ -301,6 +303,7 @@ export async function getDashboardStats(): Promise<{
     if (status === 'processing') statusCounts.processing = row._count.status;
     if (status === 'completed') statusCounts.completed = row._count.status;
     if (status === 'failed') statusCounts.failed = row._count.status;
+    if (status === 'stuck') statusCounts.stuck = row._count.status;
   }
 
   const riskDistribution = {

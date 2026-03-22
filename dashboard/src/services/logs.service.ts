@@ -3,7 +3,7 @@ import { apiClient } from '../api/client';
 const DEFAULT_LOGS_LIMIT = 50;
 const MAX_LOGS_LIMIT = 200;
 
-export type LogStatus = 'pending' | 'processing' | 'completed' | 'failed';
+export type LogStatus = 'pending' | 'processing' | 'completed' | 'failed' | 'stuck';
 export type RiskLevel = 'Low' | 'Medium' | 'High';
 export type ActionState = 'success' | 'failed' | 'pending' | 'skipped';
 export type LogOrigin = 'MANUAL' | 'WEBHOOK';
@@ -125,6 +125,7 @@ function normalizeStatus(value: unknown): LogStatus {
   }
 
   const normalized = value.toLowerCase();
+  if (normalized === 'stuck') return 'stuck';
   if (normalized === 'failed') return 'failed';
   if (normalized === 'completed' || normalized === 'processed') return 'completed';
   if (normalized === 'processing') return 'processing';
@@ -157,7 +158,7 @@ function normalizeOrigin(value: unknown): LogOrigin {
 }
 
 function buildDefaultActions(status: LogStatus): LogActions {
-  if (status === 'failed') {
+  if (status === 'failed' || status === 'stuck') {
     return {
       xml: 'failed',
       ai: 'failed',

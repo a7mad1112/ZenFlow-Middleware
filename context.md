@@ -16,7 +16,7 @@
 ### 2. Background Processing (Worker Engine + pg-boss)
 - Jobs are enqueued through pg-boss and consumed by worker engine instances.
 - Worker lifecycle handles processing, success, and failure status updates in the database.
-- Retry behavior is delegated to pg-boss job policies.
+- Retry behavior now uses resilient reliability controls with per-task max-attempt policies and action-aware retries.
 
 ### 3. Action 1: XML Converter
 - JSON payload is sanitized and transformed into XML.
@@ -415,6 +415,28 @@
 - Added post-delete user feedback in pipelines dashboard:
   - success notification card after confirmed deletion
   - error notification card when deletion fails.
+
+### 39. Atomic Retry + Exponential Backoff + STUCK Lifecycle (Complete)
+- Worker engine (`src/worker/engine.ts`) now supports atomic retries by reading previous task result metadata and skipping actions that already succeeded.
+- Individual action states are persisted and reused through structured map:
+  - `actions: { xml, ai, pdf, email, discord }` with `success | failed | skipped | pending`.
+- Idempotent retry behavior is now enforced:
+  - XML/AI/PDF/Email/Discord actions with prior `success` are not re-executed on retry.
+  - only failed actions are re-run in subsequent attempts, preventing redundant API calls (including Gemini).
+- Retry policy upgraded across enqueue paths (`webhook.controller.ts`, `pipeline.controller.ts`, `routes.ts`):
+  - `retryLimit: 4`
+  - `retryDelay: 10`
+  - `retryBackoff: true`
+  - task `maxAttempts` standardized to `5`.
+- DLQ-style lifecycle implemented using persisted status:
+  - when attempts are exhausted (`attempt >= maxAttempts`), task status is set to `stuck`.
+  - stuck tasks are surfaced in dashboard logs filtering and status normalization for easy operations triage.
+
+### 40. STUCK Task Recovery UX Patch (Complete)
+- Updated `dashboard/src/components/logs/LogDetailDrawer.tsx` so Retry remains visible for both `failed` and `stuck` task statuses.
+- Improved failure card label to distinguish exhausted retries (`Task stuck after retries`) from normal failures.
+- Updated backend manual retry in `src/api/controllers/webhook.controller.ts` to reset `attempts` to `0` when re-enqueuing a task.
+- Recovery flow now correctly restarts retry budget after manual operator intervention.
 
 ## Milestones
 1. Backend Automation Platform: Complete

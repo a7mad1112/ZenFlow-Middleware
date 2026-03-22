@@ -34,8 +34,9 @@ export function setupRoutes(app: Express): void {
       const queue = getQueue();
       const jobId = await queue.publish('process-webhook', webhook, {
         priority: 10,
-        retryLimit: 2,
-        retryDelay: 5,
+        retryLimit: 4,
+        retryDelay: 10,
+        retryBackoff: true,
       });
 
       logger.info('Task enqueued successfully', {

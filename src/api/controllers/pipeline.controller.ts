@@ -557,7 +557,7 @@ export async function triggerPipelineManually(
         status: 'pending',
         payload: payloadWithMeta as any,
         attempts: 0,
-        maxAttempts: 3,
+        maxAttempts: 5,
         result: {
           origin: 'MANUAL',
           dispatchSource: 'dashboard',
@@ -578,8 +578,9 @@ export async function triggerPipelineManually(
       },
       {
         priority: 6,
-        retryLimit: 2,
-        retryDelay: 5,
+        retryLimit: 4,
+        retryDelay: 10,
+        retryBackoff: true,
       }
     );
 

@@ -48,9 +48,7 @@ export interface PipelineHealthReport {
 /**
  * Create a new pipeline
  */
-export async function createPipeline(
-  data: CreatePipelineDTO
-): Promise<any> {
+export async function createPipeline(data: CreatePipelineDTO): Promise<any> {
   try {
     const normalizedEnabledActions = Array.isArray(data.enabledActions)
       ? Array.from(
@@ -162,10 +160,7 @@ export async function getPipelineById(pipelineId: string): Promise<any> {
 /**
  * Add a subscriber to a pipeline
  */
-export async function addSubscriber(
-  pipelineId: string,
-  data: AddSubscriberDTO
-): Promise<any> {
+export async function addSubscriber(pipelineId: string, data: AddSubscriberDTO): Promise<any> {
   try {
     // Check if pipeline exists
     const pipeline = await prisma.pipeline.findUnique({
@@ -214,11 +209,21 @@ export async function updatePipeline(
   try {
     const updateData: Record<string, unknown> = {};
 
-    if (data.name !== undefined) updateData.name = data.name;
-    if (data.description !== undefined) updateData.description = data.description;
-    if (data.actionType !== undefined) updateData.actionType = data.actionType;
-    if (data.rateLimit !== undefined) updateData.rateLimit = data.rateLimit;
-    if (data.config !== undefined) updateData.config = data.config;
+    if (data.name !== undefined) {
+      updateData.name = data.name;
+    }
+    if (data.description !== undefined) {
+      updateData.description = data.description;
+    }
+    if (data.actionType !== undefined) {
+      updateData.actionType = data.actionType;
+    }
+    if (data.rateLimit !== undefined) {
+      updateData.rateLimit = data.rateLimit;
+    }
+    if (data.config !== undefined) {
+      updateData.config = data.config;
+    }
 
     const pipeline = await prisma.pipeline.update({
       where: { id: pipelineId },
@@ -307,7 +312,9 @@ export async function getPipelineHealth(pipelineId: string): Promise<PipelineHea
     return null;
   }
 
-  const enabledActions = new Set((pipeline.enabledActions ?? []).map((action) => action.toUpperCase()));
+  const enabledActions = new Set(
+    (pipeline.enabledActions ?? []).map((action) => action.toUpperCase())
+  );
   const checks: ActionReadinessItem[] = [];
 
   const converterEnabled = enabledActions.has('CONVERTER');
@@ -460,9 +467,7 @@ export async function deletePipeline(pipelineId: string): Promise<void> {
 /**
  * Get all subscribers for a pipeline
  */
-export async function getSubscribersByPipelineId(
-  pipelineId: string
-): Promise<any[]> {
+export async function getSubscribersByPipelineId(pipelineId: string): Promise<any[]> {
   try {
     const subscribers = await prisma.subscriber.findMany({
       where: { pipelineId },
@@ -496,10 +501,7 @@ export async function getSubscribersByPipelineId(
 /**
  * Remove a subscriber from a pipeline
  */
-export async function removeSubscriber(
-  pipelineId: string,
-  subscriberId: string
-): Promise<void> {
+export async function removeSubscriber(pipelineId: string, subscriberId: string): Promise<void> {
   try {
     const subscriber = await prisma.subscriber.findFirst({
       where: {
@@ -584,7 +586,9 @@ export async function triggerPipelineManually(
     const payloadWithMeta: Record<string, unknown> = {
       ...data.payload,
       metadata:
-        data.payload.metadata && typeof data.payload.metadata === 'object' && !Array.isArray(data.payload.metadata)
+        data.payload.metadata &&
+        typeof data.payload.metadata === 'object' &&
+        !Array.isArray(data.payload.metadata)
           ? {
               ...(data.payload.metadata as Record<string, unknown>),
               origin: 'MANUAL',

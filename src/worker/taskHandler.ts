@@ -7,9 +7,7 @@ import type { WebhookPayload, TaskResult } from '../models/types.js';
  * Process webhook task
  * This handler will be invoked by pg-boss for each queued webhook
  */
-async function processWebhookTask(
-  payload: WebhookPayload
-): Promise<TaskResult> {
+async function processWebhookTask(payload: WebhookPayload): Promise<TaskResult> {
   try {
     logger.info('Processing webhook task', {
       webhook_id: payload.id,

@@ -36,7 +36,11 @@ const swaggerOptions: swaggerJsdoc.Options = {
           properties: {
             id: { type: 'string', example: 'clx123pipeline' },
             name: { type: 'string', example: 'Orders Pipeline' },
-            description: { type: 'string', nullable: true, example: 'Routes ecommerce order events' },
+            description: {
+              type: 'string',
+              nullable: true,
+              example: 'Routes ecommerce order events',
+            },
             actionType: {
               type: 'string',
               enum: ['CONVERTER', 'EMAIL', 'DISCORD', 'PDF', 'AI_SUMMARIZER'],
@@ -106,7 +110,11 @@ const swaggerOptions: swaggerJsdoc.Options = {
           properties: {
             id: { type: 'string', example: 'clx123subscriber' },
             pipelineId: { type: 'string', example: 'clx123pipeline' },
-            targetUrl: { type: 'string', format: 'uri', example: 'https://integrator.example.com/events' },
+            targetUrl: {
+              type: 'string',
+              format: 'uri',
+              example: 'https://integrator.example.com/events',
+            },
             isActive: { type: 'boolean', example: true },
             createdAt: { type: 'string', format: 'date-time' },
             updatedAt: { type: 'string', format: 'date-time' },
@@ -116,7 +124,11 @@ const swaggerOptions: swaggerJsdoc.Options = {
           type: 'object',
           required: ['targetUrl'],
           properties: {
-            targetUrl: { type: 'string', format: 'uri', example: 'https://integrator.example.com/events' },
+            targetUrl: {
+              type: 'string',
+              format: 'uri',
+              example: 'https://integrator.example.com/events',
+            },
           },
         },
         TriggerInput: {
@@ -171,7 +183,13 @@ const swaggerOptions: swaggerJsdoc.Options = {
             payload: { type: 'object', additionalProperties: true },
             attempts: { type: 'integer', minimum: 0, example: 0 },
             maxAttempts: { type: 'integer', minimum: 1, example: 5 },
-            result: { oneOf: [{ type: 'object', additionalProperties: true }, { type: 'string' }, { type: 'null' }] },
+            result: {
+              oneOf: [
+                { type: 'object', additionalProperties: true },
+                { type: 'string' },
+                { type: 'null' },
+              ],
+            },
             createdAt: { type: 'string', format: 'date-time' },
             updatedAt: { type: 'string', format: 'date-time' },
           },
@@ -191,7 +209,8 @@ const swaggerOptions: swaggerJsdoc.Options = {
       '/webhooks/{pipelineId}': {
         post: {
           summary: 'Inbound Webhook',
-          description: 'Ingest an inbound webhook payload and enqueue processing for the target pipeline.',
+          description:
+            'Ingest an inbound webhook payload and enqueue processing for the target pipeline.',
           tags: ['Webhooks'],
           parameters: [
             {

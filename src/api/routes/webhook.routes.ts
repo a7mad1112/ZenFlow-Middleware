@@ -44,115 +44,113 @@ export function setupWebhookRoutes(app: Express): void {
    *         description: Invalid payload or routing mismatch
    *       429:
    *         description: Too many requests
-  *       500:
-  *         description: Internal server error
+   *       500:
+   *         description: Internal server error
    */
-  app.post('/api/webhooks/:pipelineId', webhookIngestionRateLimiter, async (req: Request, res: Response): Promise<void> => {
-    const { pipelineId } = req.params;
+  app.post(
+    '/api/webhooks/:pipelineId',
+    webhookIngestionRateLimiter,
+    async (req: Request, res: Response): Promise<void> => {
+      const { pipelineId } = req.params;
 
-    try {
-      // Validate incoming body
-      const validatedData = ingestWebhookSchema.parse({
-        payload: req.body,
-      });
+      try {
+        // Validate incoming body
+        const validatedData = ingestWebhookSchema.parse({
+          payload: req.body,
+        });
 
-      logger.info('Webhook ingestion initiated', {
-        webhookId: pipelineId,
-        payloadSize: JSON.stringify(req.body).length,
-      });
+        logger.info('Webhook ingestion initiated', {
+          webhookId: pipelineId,
+          payloadSize: JSON.stringify(req.body).length,
+        });
 
-      // Ingest webhook and queue job
-      const result = await ingestWebhook(pipelineId, validatedData);
+        // Ingest webhook and queue job
+        const result = await ingestWebhook(pipelineId, validatedData);
 
-      logger.info('Webhook ingested successfully', {
-        webhookId: pipelineId,
-        taskId: result.id,
-        jobId: result.jobId,
-      });
+        logger.info('Webhook ingested successfully', {
+          webhookId: pipelineId,
+          taskId: result.id,
+          jobId: result.jobId,
+        });
 
-      // Return 202 Accepted with tracking logId
-      res.status(202).json({
-        success: true,
-        message: 'Webhook accepted for processing',
-        logId: result.id,
-        jobId: result.jobId,
-        status: 'pending',
-        createdAt: result.createdAt,
-      });
-    } catch (error) {
-      // Handle webhook not found (404)
-      if (
-        error instanceof Error &&
-        error.message.includes('not found')
-      ) {
-        logger.warn('Webhook not found for ingestion', { webhookId: pipelineId });
-        res.status(404).json({
+        // Return 202 Accepted with tracking logId
+        res.status(202).json({
+          success: true,
+          message: 'Webhook accepted for processing',
+          logId: result.id,
+          jobId: result.jobId,
+          status: 'pending',
+          createdAt: result.createdAt,
+        });
+      } catch (error) {
+        // Handle webhook not found (404)
+        if (error instanceof Error && error.message.includes('not found')) {
+          logger.warn('Webhook not found for ingestion', { webhookId: pipelineId });
+          res.status(404).json({
+            success: false,
+            message: 'Webhook not found',
+            webhookId: pipelineId,
+          });
+          return;
+        }
+
+        if (
+          error instanceof Error &&
+          (error.message.includes('event mismatch') ||
+            error.message.includes('must include eventType') ||
+            error.message.includes('No active webhook configuration found for event type'))
+        ) {
+          logger.warn('Webhook payload/event routing validation failed', {
+            webhookId: pipelineId,
+            error: error.message,
+          });
+          res.status(400).json({
+            success: false,
+            message: error.message,
+            webhookId: pipelineId,
+          });
+          return;
+        }
+
+        // Handle inactive webhook (400)
+        if (error instanceof Error && error.message.includes('inactive')) {
+          logger.warn('Webhook is inactive', { webhookId: pipelineId });
+          res.status(400).json({
+            success: false,
+            message: 'Webhook is inactive',
+            webhookId: pipelineId,
+          });
+          return;
+        }
+
+        // Handle validation errors (400)
+        if (error instanceof z.ZodError) {
+          logger.warn('Webhook payload validation failed', {
+            webhookId: pipelineId,
+            errors: error.errors,
+          });
+          res.status(400).json({
+            success: false,
+            message: 'Invalid webhook payload',
+            errors: error.errors,
+          });
+          return;
+        }
+
+        // Handle all other errors (500)
+        logger.error('Failed to ingest webhook', {
+          webhookId: pipelineId,
+          error: error instanceof Error ? error.message : String(error),
+          stack: error instanceof Error ? error.stack : undefined,
+        });
+        res.status(500).json({
           success: false,
-          message: 'Webhook not found',
+          message: 'Internal server error',
           webhookId: pipelineId,
         });
-        return;
       }
-
-      if (
-        error instanceof Error &&
-        (error.message.includes('event mismatch') ||
-          error.message.includes('must include eventType') ||
-          error.message.includes('No active webhook configuration found for event type'))
-      ) {
-        logger.warn('Webhook payload/event routing validation failed', {
-          webhookId: pipelineId,
-          error: error.message,
-        });
-        res.status(400).json({
-          success: false,
-          message: error.message,
-          webhookId: pipelineId,
-        });
-        return;
-      }
-
-      // Handle inactive webhook (400)
-      if (
-        error instanceof Error &&
-        error.message.includes('inactive')
-      ) {
-        logger.warn('Webhook is inactive', { webhookId: pipelineId });
-        res.status(400).json({
-          success: false,
-          message: 'Webhook is inactive',
-          webhookId: pipelineId,
-        });
-        return;
-      }
-
-      // Handle validation errors (400)
-      if (error instanceof z.ZodError) {
-        logger.warn('Webhook payload validation failed', {
-          webhookId: pipelineId,
-          errors: error.errors,
-        });
-        res.status(400).json({
-          success: false,
-          message: 'Invalid webhook payload',
-          errors: error.errors,
-        });
-        return;
-      }
-
-      // Handle all other errors (500)
-      logger.error('Failed to ingest webhook', {
-        webhookId: pipelineId,
-        error: error instanceof Error ? error.message : String(error),
-        stack: error instanceof Error ? error.stack : undefined,
-      });
-      res.status(500).json({
-        success: false,
-        message: 'Internal server error',
-        webhookId: pipelineId,
-      });
     }
-  });
+  );
 
   /**
    * GET /api/webhooks/:webhookId/status/:logId
@@ -213,10 +211,7 @@ export function setupWebhookRoutes(app: Express): void {
         });
       } catch (error) {
         // Handle task not found (404)
-        if (
-          error instanceof Error &&
-          error.message.includes('not found')
-        ) {
+        if (error instanceof Error && error.message.includes('not found')) {
           logger.warn('Task not found', {
             webhookId: webhookId,
             logId: logId,

@@ -17,7 +17,10 @@ export async function initBoss(): Promise<PgBoss> {
     return bossInstance;
   }
 
-  console.log('🔵 Initializing PG-Boss with DATABASE_URL:', config.databaseUrl.substring(0, 50) + '...');
+  console.log(
+    '🔵 Initializing PG-Boss with DATABASE_URL:',
+    config.databaseUrl.substring(0, 50) + '...'
+  );
 
   bossInstance = new PgBoss({
     connectionString: config.databaseUrl,
@@ -36,15 +39,15 @@ export async function initBoss(): Promise<PgBoss> {
   });
 
   console.log('🔵 Starting PG-Boss queue...');
-  
+
   // Start the queue
   await bossInstance.start();
-  
+
   console.log('✅ PG-Boss started successfully');
 
   // Give it a moment to fully initialize connections and create tables
-  await new Promise(resolve => setTimeout(resolve, 1000));
-  
+  await new Promise((resolve) => setTimeout(resolve, 1000));
+
   console.log('✅ PG-Boss ready for use');
 
   return bossInstance;

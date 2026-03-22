@@ -7,7 +7,7 @@ function escapeHtml(value: unknown): string {
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
-    .replace(/\"/g, '&quot;')
+    .replace(/"/g, '&quot;')
     .replace(/'/g, '&#039;');
 }
 
@@ -114,7 +114,8 @@ class EmailService {
     options?: SendOrderConfirmationOptions
   ): Promise<void> {
     const transporter = this.getTransporter(options?.smtpConfig);
-    const from = options?.smtpConfig?.from || config.emailFrom || options?.smtpConfig?.user || config.smtpUser;
+    const from =
+      options?.smtpConfig?.from || config.emailFrom || options?.smtpConfig?.user || config.smtpUser;
 
     if (!from) {
       throw new Error('Email sender is not configured. Set EMAIL_FROM or SMTP_USER in .env');

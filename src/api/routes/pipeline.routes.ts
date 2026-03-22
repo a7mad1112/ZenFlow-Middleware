@@ -74,8 +74,8 @@ type TriggerPipelineRequest = z.infer<typeof triggerPipelineSchema>;
 
 export function setupPipelineRoutes(app: Express): void {
   /**
-  * @swagger
-  * /pipelines:
+   * @swagger
+   * /pipelines:
    *   post:
    *     tags:
    *       - Pipelines
@@ -89,19 +89,19 @@ export function setupPipelineRoutes(app: Express): void {
    *     responses:
    *       201:
    *         description: Pipeline created
-  *         content:
-  *           application/json:
-  *             schema:
-  *               type: object
-  *               properties:
-  *                 success:
-  *                   type: boolean
-  *                   example: true
-  *                 message:
-  *                   type: string
-  *                   example: Pipeline created successfully
-  *                 data:
-  *                   $ref: '#/components/schemas/Pipeline'
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 success:
+   *                   type: boolean
+   *                   example: true
+   *                 message:
+   *                   type: string
+   *                   example: Pipeline created successfully
+   *                 data:
+   *                   $ref: '#/components/schemas/Pipeline'
    *       400:
    *         description: Validation error
    *       409:
@@ -115,21 +115,21 @@ export function setupPipelineRoutes(app: Express): void {
    *     responses:
    *       200:
    *         description: Pipelines retrieved
-  *         content:
-  *           application/json:
-  *             schema:
-  *               type: object
-  *               properties:
-  *                 success:
-  *                   type: boolean
-  *                   example: true
-  *                 message:
-  *                   type: string
-  *                   example: Retrieved 2 pipeline(s)
-  *                 data:
-  *                   type: array
-  *                   items:
-  *                     $ref: '#/components/schemas/PipelineWithSubscribers'
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 success:
+   *                   type: boolean
+   *                   example: true
+   *                 message:
+   *                   type: string
+   *                   example: Retrieved 2 pipeline(s)
+   *                 data:
+   *                   type: array
+   *                   items:
+   *                     $ref: '#/components/schemas/PipelineWithSubscribers'
    *       500:
    *         description: Internal server error
    */
@@ -261,136 +261,136 @@ export function setupPipelineRoutes(app: Express): void {
   });
 
   /**
-    * @swagger
-    * /pipelines/{id}:
-    *   get:
-    *     tags:
-    *       - Pipelines
-    *     summary: Get pipeline by id
-    *     parameters:
-    *       - in: path
-    *         name: id
-    *         required: true
-    *         schema:
-    *           type: string
-    *     responses:
-    *       200:
-    *         description: Pipeline retrieved
-    *         content:
-    *           application/json:
-    *             schema:
-    *               type: object
-    *               properties:
-    *                 success:
-    *                   type: boolean
-    *                 message:
-    *                   type: string
-    *                 data:
-    *                   $ref: '#/components/schemas/PipelineWithSubscribers'
-    *       404:
-    *         description: Pipeline not found
-    *       500:
-    *         description: Internal server error
-    *   put:
-    *     tags:
-    *       - Pipelines
-    *     summary: Replace pipeline fields
-    *     parameters:
-    *       - in: path
-    *         name: id
-    *         required: true
-    *         schema:
-    *           type: string
-    *     requestBody:
-    *       required: true
-    *       content:
-    *         application/json:
-    *           schema:
-    *             $ref: '#/components/schemas/PipelineInput'
-    *     responses:
-    *       200:
-    *         description: Pipeline updated
-    *         content:
-    *           application/json:
-    *             schema:
-    *               type: object
-    *               properties:
-    *                 success:
-    *                   type: boolean
-    *                 message:
-    *                   type: string
-    *                 data:
-    *                   $ref: '#/components/schemas/Pipeline'
-    *       400:
-    *         description: Validation error
-    *       404:
-    *         description: Pipeline not found
-    *       409:
-    *         description: Duplicate pipeline name
-    *       500:
-    *         description: Internal server error
-    *   patch:
-    *     tags:
-    *       - Pipelines
-    *     summary: Partially update pipeline
-    *     parameters:
-    *       - in: path
-    *         name: id
-    *         required: true
-    *         schema:
-    *           type: string
-    *     requestBody:
-    *       required: true
-    *       content:
-    *         application/json:
-    *           schema:
-    *             allOf:
-    *               - $ref: '#/components/schemas/PipelineInput'
-    *     responses:
-    *       200:
-    *         description: Pipeline updated
-    *         content:
-    *           application/json:
-    *             schema:
-    *               type: object
-    *               properties:
-    *                 success:
-    *                   type: boolean
-    *                 message:
-    *                   type: string
-    *                 data:
-    *                   $ref: '#/components/schemas/Pipeline'
-    *       400:
-    *         description: Validation error
-    *       404:
-    *         description: Pipeline not found
-    *       409:
-    *         description: Duplicate pipeline name
-    *       500:
-    *         description: Internal server error
-    *   delete:
-    *     tags:
-    *       - Pipelines
-    *     summary: Delete pipeline
-    *     parameters:
-    *       - in: path
-    *         name: id
-    *         required: true
-    *         schema:
-    *           type: string
-    *     responses:
-    *       200:
-    *         description: Pipeline deleted
-    *         content:
-    *           application/json:
-    *             schema:
-    *               $ref: '#/components/schemas/SuccessResponse'
-    *       404:
-    *         description: Pipeline not found
-    *       500:
-    *         description: Internal server error
-    */
-    /**
+   * @swagger
+   * /pipelines/{id}:
+   *   get:
+   *     tags:
+   *       - Pipelines
+   *     summary: Get pipeline by id
+   *     parameters:
+   *       - in: path
+   *         name: id
+   *         required: true
+   *         schema:
+   *           type: string
+   *     responses:
+   *       200:
+   *         description: Pipeline retrieved
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 success:
+   *                   type: boolean
+   *                 message:
+   *                   type: string
+   *                 data:
+   *                   $ref: '#/components/schemas/PipelineWithSubscribers'
+   *       404:
+   *         description: Pipeline not found
+   *       500:
+   *         description: Internal server error
+   *   put:
+   *     tags:
+   *       - Pipelines
+   *     summary: Replace pipeline fields
+   *     parameters:
+   *       - in: path
+   *         name: id
+   *         required: true
+   *         schema:
+   *           type: string
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             $ref: '#/components/schemas/PipelineInput'
+   *     responses:
+   *       200:
+   *         description: Pipeline updated
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 success:
+   *                   type: boolean
+   *                 message:
+   *                   type: string
+   *                 data:
+   *                   $ref: '#/components/schemas/Pipeline'
+   *       400:
+   *         description: Validation error
+   *       404:
+   *         description: Pipeline not found
+   *       409:
+   *         description: Duplicate pipeline name
+   *       500:
+   *         description: Internal server error
+   *   patch:
+   *     tags:
+   *       - Pipelines
+   *     summary: Partially update pipeline
+   *     parameters:
+   *       - in: path
+   *         name: id
+   *         required: true
+   *         schema:
+   *           type: string
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             allOf:
+   *               - $ref: '#/components/schemas/PipelineInput'
+   *     responses:
+   *       200:
+   *         description: Pipeline updated
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 success:
+   *                   type: boolean
+   *                 message:
+   *                   type: string
+   *                 data:
+   *                   $ref: '#/components/schemas/Pipeline'
+   *       400:
+   *         description: Validation error
+   *       404:
+   *         description: Pipeline not found
+   *       409:
+   *         description: Duplicate pipeline name
+   *       500:
+   *         description: Internal server error
+   *   delete:
+   *     tags:
+   *       - Pipelines
+   *     summary: Delete pipeline
+   *     parameters:
+   *       - in: path
+   *         name: id
+   *         required: true
+   *         schema:
+   *           type: string
+   *     responses:
+   *       200:
+   *         description: Pipeline deleted
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/SuccessResponse'
+   *       404:
+   *         description: Pipeline not found
+   *       500:
+   *         description: Internal server error
+   */
+  /**
    * GET /api/pipelines/:id
    * Get a specific pipeline by ID with subscribers
    */
@@ -635,50 +635,50 @@ export function setupPipelineRoutes(app: Express): void {
   });
 
   /**
-    * @swagger
-    * /pipelines/{id}/trigger:
-    *   post:
-    *     tags:
-    *       - Pipelines
-    *     summary: Manually trigger pipeline execution
-    *     description: Executes a pipeline using ad-hoc payload input for internal testing or replay scenarios.
-    *     parameters:
-    *       - in: path
-    *         name: id
-    *         required: true
-    *         schema:
-    *           type: string
-    *     requestBody:
-    *       required: true
-    *       content:
-    *         application/json:
-    *           schema:
-    *             $ref: '#/components/schemas/TriggerInput'
-    *     responses:
-    *       202:
-    *         description: Trigger accepted
-    *         content:
-    *           application/json:
-    *             schema:
-    *               type: object
-    *               properties:
-    *                 success:
-    *                   type: boolean
-    *                   example: true
-    *                 message:
-    *                   type: string
-    *                   example: Pipeline trigger accepted
-    *                 data:
-    *                   type: object
-    *                   additionalProperties: true
-    *       400:
-    *         description: Validation error
-    *       404:
-    *         description: Pipeline or event webhook not found
-    *       500:
-    *         description: Internal server error
-    */
-    /**
+   * @swagger
+   * /pipelines/{id}/trigger:
+   *   post:
+   *     tags:
+   *       - Pipelines
+   *     summary: Manually trigger pipeline execution
+   *     description: Executes a pipeline using ad-hoc payload input for internal testing or replay scenarios.
+   *     parameters:
+   *       - in: path
+   *         name: id
+   *         required: true
+   *         schema:
+   *           type: string
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             $ref: '#/components/schemas/TriggerInput'
+   *     responses:
+   *       202:
+   *         description: Trigger accepted
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 success:
+   *                   type: boolean
+   *                   example: true
+   *                 message:
+   *                   type: string
+   *                   example: Pipeline trigger accepted
+   *                 data:
+   *                   type: object
+   *                   additionalProperties: true
+   *       400:
+   *         description: Validation error
+   *       404:
+   *         description: Pipeline or event webhook not found
+   *       500:
+   *         description: Internal server error
+   */
+  /**
    * POST /api/pipelines/:id/trigger
    * Manually dispatch a pipeline task from internal dashboard
    */
@@ -799,208 +799,202 @@ export function setupPipelineRoutes(app: Express): void {
   });
 
   /**
-    * @swagger
-    * /pipelines/{id}/subscribers:
-    *   get:
-    *     tags:
-    *       - Subscribers
-    *     summary: List pipeline subscribers
-    *     parameters:
-    *       - in: path
-    *         name: id
-    *         required: true
-    *         schema:
-    *           type: string
-    *     responses:
-    *       200:
-    *         description: Subscribers retrieved
-    *         content:
-    *           application/json:
-    *             schema:
-    *               type: object
-    *               properties:
-    *                 success:
-    *                   type: boolean
-    *                 message:
-    *                   type: string
-    *                 data:
-    *                   type: array
-    *                   items:
-    *                     $ref: '#/components/schemas/Subscriber'
-    *       404:
-    *         description: Pipeline not found
-    *       500:
-    *         description: Internal server error
-    *   post:
-    *     tags:
-    *       - Subscribers
-    *     summary: Add a subscriber to pipeline
-    *     parameters:
-    *       - in: path
-    *         name: id
-    *         required: true
-    *         schema:
-    *           type: string
-    *     requestBody:
-    *       required: true
-    *       content:
-    *         application/json:
-    *           schema:
-    *             $ref: '#/components/schemas/SubscriberInput'
-    *     responses:
-    *       201:
-    *         description: Subscriber added
-    *         content:
-    *           application/json:
-    *             schema:
-    *               type: object
-    *               properties:
-    *                 success:
-    *                   type: boolean
-    *                 message:
-    *                   type: string
-    *                 data:
-    *                   $ref: '#/components/schemas/Subscriber'
-    *       400:
-    *         description: Validation error
-    *       404:
-    *         description: Pipeline not found
-    *       500:
-    *         description: Internal server error
-    */
-    /**
+   * @swagger
+   * /pipelines/{id}/subscribers:
+   *   get:
+   *     tags:
+   *       - Subscribers
+   *     summary: List pipeline subscribers
+   *     parameters:
+   *       - in: path
+   *         name: id
+   *         required: true
+   *         schema:
+   *           type: string
+   *     responses:
+   *       200:
+   *         description: Subscribers retrieved
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 success:
+   *                   type: boolean
+   *                 message:
+   *                   type: string
+   *                 data:
+   *                   type: array
+   *                   items:
+   *                     $ref: '#/components/schemas/Subscriber'
+   *       404:
+   *         description: Pipeline not found
+   *       500:
+   *         description: Internal server error
+   *   post:
+   *     tags:
+   *       - Subscribers
+   *     summary: Add a subscriber to pipeline
+   *     parameters:
+   *       - in: path
+   *         name: id
+   *         required: true
+   *         schema:
+   *           type: string
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             $ref: '#/components/schemas/SubscriberInput'
+   *     responses:
+   *       201:
+   *         description: Subscriber added
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 success:
+   *                   type: boolean
+   *                 message:
+   *                   type: string
+   *                 data:
+   *                   $ref: '#/components/schemas/Subscriber'
+   *       400:
+   *         description: Validation error
+   *       404:
+   *         description: Pipeline not found
+   *       500:
+   *         description: Internal server error
+   */
+  /**
    * GET /api/pipelines/:id/subscribers
    * Get all subscribers for a pipeline
    */
-  app.get(
-    '/api/pipelines/:id/subscribers',
-    async (req: Request, res: Response): Promise<void> => {
-      try {
-        const { id } = req.params;
+  app.get('/api/pipelines/:id/subscribers', async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { id } = req.params;
 
-        // Verify pipeline exists
-        const pipeline = await getPipelineById(id);
-        if (!pipeline) {
-          logger.warn('GET /api/pipelines/:id/subscribers - Pipeline not found', {
-            pipeline_id: id,
-          });
-
-          res.status(404).json({
-            success: false,
-            message: 'Pipeline not found',
-          });
-          return;
-        }
-
-        const subscribers = await getSubscribersByPipelineId(id);
-
-        logger.debug('GET /api/pipelines/:id/subscribers - Retrieved subscribers', {
+      // Verify pipeline exists
+      const pipeline = await getPipelineById(id);
+      if (!pipeline) {
+        logger.warn('GET /api/pipelines/:id/subscribers - Pipeline not found', {
           pipeline_id: id,
-          count: subscribers.length,
         });
 
-        res.status(200).json({
-          success: true,
-          message: `Retrieved ${subscribers.length} subscriber(s)`,
-          data: subscribers,
+        res.status(404).json({
+          success: false,
+          message: 'Pipeline not found',
         });
-      } catch (error) {
-        logger.error('GET /api/pipelines/:id/subscribers failed', {
-          error: error instanceof Error ? error.message : String(error),
-          pipeline_id: req.params.id,
-        });
+        return;
+      }
 
+      const subscribers = await getSubscribersByPipelineId(id);
+
+      logger.debug('GET /api/pipelines/:id/subscribers - Retrieved subscribers', {
+        pipeline_id: id,
+        count: subscribers.length,
+      });
+
+      res.status(200).json({
+        success: true,
+        message: `Retrieved ${subscribers.length} subscriber(s)`,
+        data: subscribers,
+      });
+    } catch (error) {
+      logger.error('GET /api/pipelines/:id/subscribers failed', {
+        error: error instanceof Error ? error.message : String(error),
+        pipeline_id: req.params.id,
+      });
+
+      res.status(500).json({
+        success: false,
+        message: 'Internal server error',
+      });
+    }
+  });
+
+  /**
+   * POST /api/pipelines/:id/subscribers
+   * Add a subscriber to a pipeline
+   */
+  app.post('/api/pipelines/:id/subscribers', async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { id } = req.params;
+      const data: AddSubscriberRequest = addSubscriberSchema.parse(req.body);
+
+      const subscriber = await addSubscriber(id, {
+        targetUrl: data.targetUrl,
+      });
+
+      logger.info('POST /api/pipelines/:id/subscribers - Subscriber added', {
+        pipeline_id: id,
+        subscriber_id: subscriber.id,
+      });
+
+      res.status(201).json({
+        success: true,
+        message: 'Subscriber added successfully',
+        data: subscriber,
+      });
+    } catch (error) {
+      logger.error('POST /api/pipelines/:id/subscribers failed', {
+        error: error instanceof Error ? error.message : String(error),
+        pipeline_id: req.params.id,
+      });
+
+      if (error instanceof z.ZodError) {
+        res.status(400).json({
+          success: false,
+          message: 'Validation error',
+          errors: error.errors,
+        });
+      } else if (error instanceof Error && error.message.includes('not found')) {
+        res.status(404).json({
+          success: false,
+          message: 'Pipeline not found',
+        });
+      } else {
         res.status(500).json({
           success: false,
           message: 'Internal server error',
         });
       }
     }
-  );
+  });
 
   /**
-   * POST /api/pipelines/:id/subscribers
-   * Add a subscriber to a pipeline
+   * @swagger
+   * /pipelines/{id}/subscribers/{subscriberId}:
+   *   delete:
+   *     tags:
+   *       - Subscribers
+   *     summary: Remove subscriber from pipeline
+   *     parameters:
+   *       - in: path
+   *         name: id
+   *         required: true
+   *         schema:
+   *           type: string
+   *       - in: path
+   *         name: subscriberId
+   *         required: true
+   *         schema:
+   *           type: string
+   *     responses:
+   *       200:
+   *         description: Subscriber removed
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/SuccessResponse'
+   *       404:
+   *         description: Subscriber not found
+   *       500:
+   *         description: Internal server error
    */
-  app.post(
-    '/api/pipelines/:id/subscribers',
-    async (req: Request, res: Response): Promise<void> => {
-      try {
-        const { id } = req.params;
-        const data: AddSubscriberRequest = addSubscriberSchema.parse(req.body);
-
-        const subscriber = await addSubscriber(id, {
-          targetUrl: data.targetUrl,
-        });
-
-        logger.info('POST /api/pipelines/:id/subscribers - Subscriber added', {
-          pipeline_id: id,
-          subscriber_id: subscriber.id,
-        });
-
-        res.status(201).json({
-          success: true,
-          message: 'Subscriber added successfully',
-          data: subscriber,
-        });
-      } catch (error) {
-        logger.error('POST /api/pipelines/:id/subscribers failed', {
-          error: error instanceof Error ? error.message : String(error),
-          pipeline_id: req.params.id,
-        });
-
-        if (error instanceof z.ZodError) {
-          res.status(400).json({
-            success: false,
-            message: 'Validation error',
-            errors: error.errors,
-          });
-        } else if (error instanceof Error && error.message.includes('not found')) {
-          res.status(404).json({
-            success: false,
-            message: 'Pipeline not found',
-          });
-        } else {
-          res.status(500).json({
-            success: false,
-            message: 'Internal server error',
-          });
-        }
-      }
-    }
-  );
-
   /**
-    * @swagger
-    * /pipelines/{id}/subscribers/{subscriberId}:
-    *   delete:
-    *     tags:
-    *       - Subscribers
-    *     summary: Remove subscriber from pipeline
-    *     parameters:
-    *       - in: path
-    *         name: id
-    *         required: true
-    *         schema:
-    *           type: string
-    *       - in: path
-    *         name: subscriberId
-    *         required: true
-    *         schema:
-    *           type: string
-    *     responses:
-    *       200:
-    *         description: Subscriber removed
-    *         content:
-    *           application/json:
-    *             schema:
-    *               $ref: '#/components/schemas/SuccessResponse'
-    *       404:
-    *         description: Subscriber not found
-    *       500:
-    *         description: Internal server error
-    */
-    /**
    * DELETE /api/pipelines/:id/subscribers/:subscriberId
    * Remove a subscriber target URL from pipeline outbound connectors
    */
@@ -1042,91 +1036,85 @@ export function setupPipelineRoutes(app: Express): void {
    * GET /api/pipelines/:id/webhooks
    * Get all webhooks for a pipeline
    */
-  app.get(
-    '/api/pipelines/:id/webhooks',
-    async (req: Request, res: Response): Promise<void> => {
-      try {
-        const { id } = req.params;
+  app.get('/api/pipelines/:id/webhooks', async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { id } = req.params;
 
-        const webhooks = await getWebhooksByPipelineId(id);
+      const webhooks = await getWebhooksByPipelineId(id);
 
-        logger.debug('GET /api/pipelines/:id/webhooks - Retrieved webhooks', {
-          pipeline_id: id,
-          count: webhooks.length,
+      logger.debug('GET /api/pipelines/:id/webhooks - Retrieved webhooks', {
+        pipeline_id: id,
+        count: webhooks.length,
+      });
+
+      res.status(200).json({
+        success: true,
+        message: `Retrieved ${webhooks.length} webhook(s)`,
+        data: webhooks,
+      });
+    } catch (error) {
+      logger.error('GET /api/pipelines/:id/webhooks failed', {
+        error: error instanceof Error ? error.message : String(error),
+        pipeline_id: req.params.id,
+      });
+
+      res.status(500).json({
+        success: false,
+        message: 'Internal server error',
+      });
+    }
+  });
+
+  /**
+   * POST /api/pipelines/:id/webhooks
+   * Create a webhook for a pipeline
+   */
+  app.post('/api/pipelines/:id/webhooks', async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { id } = req.params;
+      const data: CreateWebhookRequest = createWebhookSchema.parse(req.body);
+
+      const webhook = await createWebhook(id, {
+        eventType: data.eventType,
+        url: data.url,
+        isActive: data.isActive,
+      });
+
+      logger.info('POST /api/pipelines/:id/webhooks - Webhook created', {
+        webhook_id: webhook.id,
+        pipeline_id: id,
+      });
+
+      res.status(201).json({
+        success: true,
+        message: 'Webhook created successfully',
+        data: webhook,
+      });
+    } catch (error) {
+      logger.error('POST /api/pipelines/:id/webhooks failed', {
+        error: error instanceof Error ? error.message : String(error),
+        pipeline_id: req.params.id,
+      });
+
+      if (error instanceof z.ZodError) {
+        res.status(400).json({
+          success: false,
+          message: 'Validation error',
+          errors: error.errors,
         });
-
-        res.status(200).json({
-          success: true,
-          message: `Retrieved ${webhooks.length} webhook(s)`,
-          data: webhooks,
+      } else if (error instanceof Error && error.message.includes('not found')) {
+        res.status(404).json({
+          success: false,
+          message: 'Pipeline not found',
         });
-      } catch (error) {
-        logger.error('GET /api/pipelines/:id/webhooks failed', {
-          error: error instanceof Error ? error.message : String(error),
-          pipeline_id: req.params.id,
-        });
-
+      } else {
         res.status(500).json({
           success: false,
           message: 'Internal server error',
         });
       }
     }
-  );
-
-  /**
-   * POST /api/pipelines/:id/webhooks
-   * Create a webhook for a pipeline
-   */
-  app.post(
-    '/api/pipelines/:id/webhooks',
-    async (req: Request, res: Response): Promise<void> => {
-      try {
-        const { id } = req.params;
-        const data: CreateWebhookRequest = createWebhookSchema.parse(req.body);
-
-        const webhook = await createWebhook(id, {
-          eventType: data.eventType,
-          url: data.url,
-          isActive: data.isActive,
-        });
-
-        logger.info('POST /api/pipelines/:id/webhooks - Webhook created', {
-          webhook_id: webhook.id,
-          pipeline_id: id,
-        });
-
-        res.status(201).json({
-          success: true,
-          message: 'Webhook created successfully',
-          data: webhook,
-        });
-      } catch (error) {
-        logger.error('POST /api/pipelines/:id/webhooks failed', {
-          error: error instanceof Error ? error.message : String(error),
-          pipeline_id: req.params.id,
-        });
-
-        if (error instanceof z.ZodError) {
-          res.status(400).json({
-            success: false,
-            message: 'Validation error',
-            errors: error.errors,
-          });
-        } else if (error instanceof Error && error.message.includes('not found')) {
-          res.status(404).json({
-            success: false,
-            message: 'Pipeline not found',
-          });
-        } else {
-          res.status(500).json({
-            success: false,
-            message: 'Internal server error',
-          });
-        }
-      }
-    }
-  );
+  });
 
   /**
    * PATCH /api/pipelines/:id/webhooks/:webhookId
@@ -1173,5 +1161,4 @@ export function setupPipelineRoutes(app: Express): void {
       }
     }
   );
-
 }

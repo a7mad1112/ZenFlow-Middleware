@@ -63,9 +63,15 @@ function normalizeActionExecutionState(value: unknown): ActionExecutionState {
   }
 
   const normalized = value.toLowerCase();
-  if (normalized === 'success') return 'success';
-  if (normalized === 'failed') return 'failed';
-  if (normalized === 'skipped') return 'skipped';
+  if (normalized === 'success') {
+    return 'success';
+  }
+  if (normalized === 'failed') {
+    return 'failed';
+  }
+  if (normalized === 'skipped') {
+    return 'skipped';
+  }
   return 'pending';
 }
 
@@ -112,8 +118,12 @@ function extractPreviousTaskResult(result: unknown): PreviousTaskResult {
         : undefined;
 
   const riskCandidate =
-    typeof obj.riskLevel === 'string' && ['low', 'medium', 'high'].includes(obj.riskLevel.toLowerCase())
-      ? (obj.riskLevel.charAt(0).toUpperCase() + obj.riskLevel.slice(1).toLowerCase()) as 'Low' | 'Medium' | 'High'
+    typeof obj.riskLevel === 'string' &&
+    ['low', 'medium', 'high'].includes(obj.riskLevel.toLowerCase())
+      ? ((obj.riskLevel.charAt(0).toUpperCase() + obj.riskLevel.slice(1).toLowerCase()) as
+          | 'Low'
+          | 'Medium'
+          | 'High')
       : undefined;
 
   return {
@@ -135,7 +145,10 @@ function extractPreviousTaskResult(result: unknown): PreviousTaskResult {
       pdf: normalizeActionExecutionState(actionsObj?.pdf),
       email: normalizeActionExecutionState(actionsObj?.email),
     },
-    pdf: obj.pdf && typeof obj.pdf === 'object' && !Array.isArray(obj.pdf) ? (obj.pdf as Record<string, unknown>) : {},
+    pdf:
+      obj.pdf && typeof obj.pdf === 'object' && !Array.isArray(obj.pdf)
+        ? (obj.pdf as Record<string, unknown>)
+        : {},
     email:
       obj.email && typeof obj.email === 'object' && !Array.isArray(obj.email)
         ? (obj.email as Record<string, unknown>)
@@ -158,8 +171,12 @@ function extractRiskLevel(aiSummary: string): 'Low' | 'Medium' | 'High' {
   }
 
   const normalized = match[1].toLowerCase();
-  if (normalized === 'high') return 'High';
-  if (normalized === 'medium') return 'Medium';
+  if (normalized === 'high') {
+    return 'High';
+  }
+  if (normalized === 'medium') {
+    return 'Medium';
+  }
   return 'Low';
 }
 
@@ -186,7 +203,8 @@ function isActionEnabledForPipeline(pipeline: any, action: SupportedAction): boo
   }
 
   if (action === 'DISCORD') {
-    const discordFlag = typeof pipeline?.discordEnabled === 'boolean' ? pipeline.discordEnabled : true;
+    const discordFlag =
+      typeof pipeline?.discordEnabled === 'boolean' ? pipeline.discordEnabled : true;
     return listedAsEnabled && discordFlag;
   }
 
@@ -222,10 +240,18 @@ function shouldSkipActionForRequest(
   payload: Record<string, unknown>,
   action: SupportedAction
 ): boolean {
-  if (action === 'DISCORD') return hasMetadataSkipFlag(payload, 'skipDiscord');
-  if (action === 'EMAIL') return hasMetadataSkipFlag(payload, 'skipEmail');
-  if (action === 'AI_SUMMARIZER') return hasMetadataSkipFlag(payload, 'skipAI');
-  if (action === 'PDF') return hasMetadataSkipFlag(payload, 'skipPDF');
+  if (action === 'DISCORD') {
+    return hasMetadataSkipFlag(payload, 'skipDiscord');
+  }
+  if (action === 'EMAIL') {
+    return hasMetadataSkipFlag(payload, 'skipEmail');
+  }
+  if (action === 'AI_SUMMARIZER') {
+    return hasMetadataSkipFlag(payload, 'skipAI');
+  }
+  if (action === 'PDF') {
+    return hasMetadataSkipFlag(payload, 'skipPDF');
+  }
   return false;
 }
 
@@ -276,9 +302,7 @@ function getPipelineRuntimeConfig(rawConfig: unknown): PipelineRuntimeConfig {
  * Action Handler: JSON to XML Converter
  * Converts incoming JSON payload to XML format
  */
-async function handleConverterAction(
-  payload: Record<string, unknown>
-): Promise<string> {
+async function handleConverterAction(payload: Record<string, unknown>): Promise<string> {
   try {
     logger.debug('Executing CONVERTER action: JSON to XML');
 
@@ -415,7 +439,10 @@ async function processTask(taskData: TaskPayload): Promise<void> {
       xmlOutput,
       pdfUrl: previous.pdfUrl ?? null,
       actions,
-      pdf: Object.keys(previous.pdf).length > 0 ? previous.pdf : { status: 'pending', generated: false },
+      pdf:
+        Object.keys(previous.pdf).length > 0
+          ? previous.pdf
+          : { status: 'pending', generated: false },
       email:
         Object.keys(previous.email).length > 0
           ? previous.email
@@ -449,7 +476,8 @@ async function processTask(taskData: TaskPayload): Promise<void> {
     };
 
     const aiEnabledByPipeline = isActionEnabledForPipeline(pipeline as any, 'AI_SUMMARIZER');
-    const aiSkippedByMetadata = aiEnabledByPipeline && shouldSkipActionForRequest(payload, 'AI_SUMMARIZER');
+    const aiSkippedByMetadata =
+      aiEnabledByPipeline && shouldSkipActionForRequest(payload, 'AI_SUMMARIZER');
     const aiEnabledForRequest = aiEnabledByPipeline && !aiSkippedByMetadata;
 
     if (actions.ai === 'success' && typeof aiSummary === 'string' && aiSummary.trim() !== '') {
@@ -534,14 +562,17 @@ async function processTask(taskData: TaskPayload): Promise<void> {
       });
     } else {
       const pdfEnabledByPipeline = isActionEnabledForPipeline(pipeline as any, 'PDF');
-      const pdfSkippedByMetadata = pdfEnabledByPipeline && shouldSkipActionForRequest(payload, 'PDF');
+      const pdfSkippedByMetadata =
+        pdfEnabledByPipeline && shouldSkipActionForRequest(payload, 'PDF');
 
       if (!pdfEnabledByPipeline || pdfSkippedByMetadata) {
         actions.pdf = 'skipped';
         resultDetails.pdf = {
           status: 'skipped',
           generated: false,
-          skippedReason: pdfSkippedByMetadata ? 'metadata.skipPDF=true' : 'disabled in Pipeline settings',
+          skippedReason: pdfSkippedByMetadata
+            ? 'metadata.skipPDF=true'
+            : 'disabled in Pipeline settings',
         };
       } else {
         try {
@@ -570,7 +601,8 @@ async function processTask(taskData: TaskPayload): Promise<void> {
 
     const customerEmail = extractCustomerEmail(payload);
     const emailEnabledByPipeline = isActionEnabledForPipeline(pipeline as any, 'EMAIL');
-    const emailSkippedByMetadata = emailEnabledByPipeline && shouldSkipActionForRequest(payload, 'EMAIL');
+    const emailSkippedByMetadata =
+      emailEnabledByPipeline && shouldSkipActionForRequest(payload, 'EMAIL');
     const emailEnabled = emailEnabledByPipeline && !emailSkippedByMetadata;
 
     if (actions.email === 'success') {
@@ -584,7 +616,9 @@ async function processTask(taskData: TaskPayload): Promise<void> {
         status: 'skipped',
         attempted: false,
         sent: false,
-        skippedReason: emailSkippedByMetadata ? 'metadata.skipEmail=true' : 'disabled in Pipeline settings',
+        skippedReason: emailSkippedByMetadata
+          ? 'metadata.skipEmail=true'
+          : 'disabled in Pipeline settings',
       };
     } else if (!customerEmail) {
       actions.email = 'skipped';
@@ -648,7 +682,12 @@ async function processTask(taskData: TaskPayload): Promise<void> {
       };
     } else {
       try {
-        const discordDispatch = await sendXmlToDiscord(xmlOutput, aiSummary, effectiveDiscordWebhookUrl, payload);
+        const discordDispatch = await sendXmlToDiscord(
+          xmlOutput,
+          aiSummary,
+          effectiveDiscordWebhookUrl,
+          payload
+        );
         if (discordDispatch.status === 'skipped_no_content') {
           actions.discord = 'skipped';
           resultDetails.discord = {
@@ -801,7 +840,7 @@ export async function startWorkerEngine(pgBoss: PgBoss): Promise<void> {
         },
         async (jobs) => {
           console.log(`✅ Worker #${idx} subscription active and ready for jobs`);
-          
+
           for (const job of jobs) {
             console.log('🚀 Worker #' + idx + ' picking up job:', job.id);
             console.log('🚀 WORKER: Processing logId:', job.data.logId);
@@ -835,7 +874,7 @@ export async function startWorkerEngine(pgBoss: PgBoss): Promise<void> {
 
     // Wait for all worker subscriptions to register
     await Promise.all(workers);
-    
+
     console.log('✅ All worker subscriptions registered and active');
 
     logger.info(`✅ Worker engine started with ${workerCount} workers on task-queue`);

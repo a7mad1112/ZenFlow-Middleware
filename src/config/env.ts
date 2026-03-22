@@ -6,46 +6,40 @@ const envSchema = z.object({
     .default('development')
     .transform((val) => val || process.env.NODE_ENV || 'development'),
   port: z.coerce.number().default(3000),
-  logLevel: z
-    .enum(['error', 'warn', 'info', 'debug'])
-    .default('info'),
+  logLevel: z.enum(['error', 'warn', 'info', 'debug']).default('info'),
   databaseUrl: z.string().url(),
   pgBossPoolSize: z.coerce.number().default(10),
   pgBossNewJobCheckInterval: z.coerce.number().default(1000),
   workerConcurrency: z.coerce.number().default(5),
   taskTimeoutMs: z.coerce.number().default(30000),
-  discordWebhookUrl: z.preprocess(
-    (value) => {
-      if (typeof value === 'string' && value.trim() === '') {
-        return undefined;
-      }
-      return value;
-    },
-    z.string().url().optional()
-  ),
+  discordWebhookUrl: z.preprocess((value) => {
+    if (typeof value === 'string' && value.trim() === '') {
+      return undefined;
+    }
+    return value;
+  }, z.string().url().optional()),
   smtpHost: z.string().default('smtp.gmail.com'),
   smtpPort: z.coerce.number().default(587),
-  smtpSecure: z.preprocess(
-    (value) => {
-      if (value === undefined || value === null || value === '') {
-        return false;
-      }
+  smtpSecure: z.preprocess((value) => {
+    if (value === undefined || value === null || value === '') {
+      return false;
+    }
 
-      if (typeof value === 'boolean') {
-        return value;
-      }
+    if (typeof value === 'boolean') {
+      return value;
+    }
 
-      return String(value).toLowerCase() === 'true';
-    },
-    z.boolean()
-  ),
+    return String(value).toLowerCase() === 'true';
+  }, z.boolean()),
   smtpUser: z.string().optional(),
   smtpPass: z.string().optional(),
   emailFrom: z.string().optional(),
   geminiApiKey: z.string().optional(),
   corsOrigins: z
     .string()
-    .default('http://localhost:3000,http://127.0.0.1:3000,http://localhost:5173,http://127.0.0.1:5173')
+    .default(
+      'http://localhost:3000,http://127.0.0.1:3000,http://localhost:5173,http://127.0.0.1:5173'
+    )
     .transform((value) =>
       value
         .split(',')

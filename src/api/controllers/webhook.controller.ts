@@ -23,10 +23,7 @@ function extractIncomingEventType(payload: Record<string, unknown>): string | nu
  * @param data - The incoming webhook payload
  * @returns Task record with tracking ID
  */
-export async function ingestWebhook(
-  id: string,
-  data: IngestWebhookDTO
-): Promise<any> {
+export async function ingestWebhook(id: string, data: IngestWebhookDTO): Promise<any> {
   try {
     let webhookId: string | undefined;
     let webhookTargetUrl: string | undefined;
@@ -102,7 +99,9 @@ export async function ingestWebhook(
           pipelineId,
           incomingEventType,
         });
-        throw new Error(`No active webhook configuration found for event type ${incomingEventType}`);
+        throw new Error(
+          `No active webhook configuration found for event type ${incomingEventType}`
+        );
       }
 
       webhookId = webhookConfig.id;
@@ -140,7 +139,7 @@ export async function ingestWebhook(
         taskId: result.id,
         queueName: 'task-queue',
       });
-      
+
       jobId = await boss.send(
         'task-queue',
         {
@@ -157,7 +156,7 @@ export async function ingestWebhook(
           retryBackoff: true,
         }
       );
-      
+
       console.log('✅ boss.send() returned:', {
         taskId: result.id,
         jobId: jobId,

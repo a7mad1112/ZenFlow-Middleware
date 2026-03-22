@@ -28,9 +28,15 @@ function normalizeActionState(value: unknown): ActionExecutionState {
   }
 
   const normalized = value.trim().toLowerCase();
-  if (normalized === 'success') return 'success';
-  if (normalized === 'failed') return 'failed';
-  if (normalized === 'skipped') return 'skipped';
+  if (normalized === 'success') {
+    return 'success';
+  }
+  if (normalized === 'failed') {
+    return 'failed';
+  }
+  if (normalized === 'skipped') {
+    return 'skipped';
+  }
   return 'pending';
 }
 
@@ -159,8 +165,12 @@ function canDispatchToSubscribers(result: unknown): { allowed: boolean; reason?:
   const normalized = normalizeTaskResult(result);
 
   const missingPayload = activeCoreActions.find((action) => {
-    if (action.key === 'xml') return !normalized.xmlOutput;
-    if (action.key === 'ai') return !normalized.aiSummary;
+    if (action.key === 'xml') {
+      return !normalized.xmlOutput;
+    }
+    if (action.key === 'ai') {
+      return !normalized.aiSummary;
+    }
     return !normalized.pdfUrl;
   });
 

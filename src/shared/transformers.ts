@@ -71,18 +71,14 @@ export function sanitizeXmlKey(key: string): string {
  * @param obj - The object to sanitize
  * @returns Object with sanitized keys
  */
-export function sanitizeObjectForXml(
-  obj: Record<string, unknown>
-): Record<string, unknown> {
+export function sanitizeObjectForXml(obj: Record<string, unknown>): Record<string, unknown> {
   const sanitized: Record<string, unknown> = {};
 
   for (const [key, value] of Object.entries(obj)) {
     const sanitizedKey = sanitizeXmlKey(key);
 
     if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
-      sanitized[sanitizedKey] = sanitizeObjectForXml(
-        value as Record<string, unknown>
-      );
+      sanitized[sanitizedKey] = sanitizeObjectForXml(value as Record<string, unknown>);
     } else if (Array.isArray(value)) {
       sanitized[sanitizedKey] = value.map((item) => {
         if (typeof item === 'object' && item !== null && !Array.isArray(item)) {
@@ -106,16 +102,17 @@ export function sanitizeObjectForXml(
  * @param options - Options for the transformation
  * @returns Transformed payload
  */
-export async function transformPayload(
+export function transformPayload(
   payload: Record<string, unknown>,
   transformType: string = 'json-to-xml',
   options?: Record<string, unknown>
-): Promise<string> {
+): string {
   switch (transformType.toLowerCase()) {
-    case 'json-to-xml':
+    case 'json-to-xml': {
       const rootElement = options?.rootElement || 'data';
       const sanitized = sanitizeObjectForXml(payload);
       return jsonToXml(sanitized, String(rootElement));
+    }
 
     default:
       throw new Error(`Unknown transformation type: ${transformType}`);

@@ -48,11 +48,7 @@ export async function generateInvoice(payload: any): Promise<Buffer> {
     const labelX = 60;
     const valueX = 220;
 
-    doc
-      .fontSize(12)
-      .font('Helvetica-Bold')
-      .text('Summary', labelX, tableTop)
-      .moveDown(0.8);
+    doc.fontSize(12).font('Helvetica-Bold').text('Summary', labelX, tableTop).moveDown(0.8);
 
     const rows = [
       { label: 'Customer Name', value: customerName },

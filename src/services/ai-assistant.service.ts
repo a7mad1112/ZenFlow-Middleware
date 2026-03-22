@@ -84,8 +84,12 @@ function extractRiskLevel(result: unknown): RiskLevel | null {
     }
 
     const normalized = match[1].toLowerCase();
-    if (normalized === 'low') return 'Low';
-    if (normalized === 'medium') return 'Medium';
+    if (normalized === 'low') {
+      return 'Low';
+    }
+    if (normalized === 'medium') {
+      return 'Medium';
+    }
     return 'High';
   }
 
@@ -94,9 +98,15 @@ function extractRiskLevel(result: unknown): RiskLevel | null {
 
     if (typeof value.riskLevel === 'string') {
       const normalized = value.riskLevel.toLowerCase();
-      if (normalized === 'low') return 'Low';
-      if (normalized === 'medium') return 'Medium';
-      if (normalized === 'high') return 'High';
+      if (normalized === 'low') {
+        return 'Low';
+      }
+      if (normalized === 'medium') {
+        return 'Medium';
+      }
+      if (normalized === 'high') {
+        return 'High';
+      }
     }
 
     if (typeof value.aiSummary === 'string') {
@@ -117,7 +127,14 @@ function extractAiSummary(result: unknown): string | null {
 }
 
 export async function buildAssistantSnapshot(): Promise<AssistantSnapshot> {
-  const [groupedStatuses, tasksForRisk, pipelines, pipelineTaskGroups, recentLogs, latestFailedTask] = await Promise.all([
+  const [
+    groupedStatuses,
+    tasksForRisk,
+    pipelines,
+    pipelineTaskGroups,
+    recentLogs,
+    latestFailedTask,
+  ] = await Promise.all([
     prisma.task.groupBy({
       by: ['status'],
       _count: {
@@ -211,11 +228,21 @@ export async function buildAssistantSnapshot(): Promise<AssistantSnapshot> {
 
   for (const row of groupedStatuses) {
     const normalized = row.status.toLowerCase();
-    if (normalized === 'pending') statusCounts.pending = row._count.status;
-    if (normalized === 'processing') statusCounts.processing = row._count.status;
-    if (normalized === 'completed') statusCounts.completed = row._count.status;
-    if (normalized === 'failed') statusCounts.failed = row._count.status;
-    if (normalized === 'stuck') statusCounts.stuck = row._count.status;
+    if (normalized === 'pending') {
+      statusCounts.pending = row._count.status;
+    }
+    if (normalized === 'processing') {
+      statusCounts.processing = row._count.status;
+    }
+    if (normalized === 'completed') {
+      statusCounts.completed = row._count.status;
+    }
+    if (normalized === 'failed') {
+      statusCounts.failed = row._count.status;
+    }
+    if (normalized === 'stuck') {
+      statusCounts.stuck = row._count.status;
+    }
   }
 
   const riskDistribution = {
@@ -264,11 +291,21 @@ export async function buildAssistantSnapshot(): Promise<AssistantSnapshot> {
     };
 
     const normalized = row.status.toLowerCase();
-    if (normalized === 'pending') existing.pending = row._count.status;
-    if (normalized === 'processing') existing.processing = row._count.status;
-    if (normalized === 'completed') existing.completed = row._count.status;
-    if (normalized === 'failed') existing.failed = row._count.status;
-    if (normalized === 'stuck') existing.stuck = row._count.status;
+    if (normalized === 'pending') {
+      existing.pending = row._count.status;
+    }
+    if (normalized === 'processing') {
+      existing.processing = row._count.status;
+    }
+    if (normalized === 'completed') {
+      existing.completed = row._count.status;
+    }
+    if (normalized === 'failed') {
+      existing.failed = row._count.status;
+    }
+    if (normalized === 'stuck') {
+      existing.stuck = row._count.status;
+    }
 
     taskGroupMap.set(row.pipelineId, existing);
   }
@@ -292,7 +329,8 @@ export async function buildAssistantSnapshot(): Promise<AssistantSnapshot> {
       discordEnabled: pipeline.discordEnabled,
       updatedAt: pipeline.updatedAt.toISOString(),
       taskCounts: {
-        total: grouped.pending + grouped.processing + grouped.completed + grouped.failed + grouped.stuck,
+        total:
+          grouped.pending + grouped.processing + grouped.completed + grouped.failed + grouped.stuck,
         pending: grouped.pending,
         processing: grouped.processing,
         completed: grouped.completed,
@@ -323,7 +361,9 @@ export async function buildAssistantSnapshot(): Promise<AssistantSnapshot> {
       failedTasks: statusCounts.failed,
       completedTasks: statusCounts.completed,
       latestFailure:
-        latestFailedTask && typeof latestFailedTask.error === 'string' && latestFailedTask.error.trim()
+        latestFailedTask &&
+        typeof latestFailedTask.error === 'string' &&
+        latestFailedTask.error.trim()
           ? {
               taskId: latestFailedTask.id,
               error: latestFailedTask.error,

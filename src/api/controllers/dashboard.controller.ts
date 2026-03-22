@@ -45,9 +45,15 @@ function normalizeActionState(value: unknown): 'success' | 'failed' | 'pending' 
   }
 
   const normalized = value.toLowerCase();
-  if (normalized === 'success') return 'success';
-  if (normalized === 'failed') return 'failed';
-  if (normalized === 'skipped') return 'skipped';
+  if (normalized === 'success') {
+    return 'success';
+  }
+  if (normalized === 'failed') {
+    return 'failed';
+  }
+  if (normalized === 'skipped') {
+    return 'skipped';
+  }
   return 'pending';
 }
 
@@ -119,7 +125,12 @@ function normalizeResultForDashboard(result: unknown): NormalizedResult {
 
     const normalized: NormalizedResult = {
       xml: typeof obj.xml === 'string' ? obj.xml : null,
-      xmlOutput: typeof obj.xmlOutput === 'string' ? obj.xmlOutput : typeof obj.xml === 'string' ? obj.xml : null,
+      xmlOutput:
+        typeof obj.xmlOutput === 'string'
+          ? obj.xmlOutput
+          : typeof obj.xml === 'string'
+            ? obj.xml
+            : null,
       aiSummary: typeof obj.aiSummary === 'string' ? obj.aiSummary : null,
       actions: {
         xml: normalizeActionState(actionsObj?.xml),
@@ -204,18 +215,30 @@ function extractRiskLevelFromResult(result: unknown): RiskLevel | null {
 
     if (typeof obj.riskLevel === 'string') {
       const normalized = obj.riskLevel.toLowerCase();
-      if (normalized === 'low') return 'Low';
-      if (normalized === 'medium') return 'Medium';
-      if (normalized === 'high') return 'High';
+      if (normalized === 'low') {
+        return 'Low';
+      }
+      if (normalized === 'medium') {
+        return 'Medium';
+      }
+      if (normalized === 'high') {
+        return 'High';
+      }
     }
 
     if (typeof obj.aiSummary === 'string') {
       const match = obj.aiSummary.match(/Risk:\s*(Low|Medium|High)/i);
       if (match) {
         const normalized = match[1].toLowerCase();
-        if (normalized === 'low') return 'Low';
-        if (normalized === 'medium') return 'Medium';
-        if (normalized === 'high') return 'High';
+        if (normalized === 'low') {
+          return 'Low';
+        }
+        if (normalized === 'medium') {
+          return 'Medium';
+        }
+        if (normalized === 'high') {
+          return 'High';
+        }
       }
     }
   }
@@ -224,9 +247,15 @@ function extractRiskLevelFromResult(result: unknown): RiskLevel | null {
     const match = result.match(/Risk:\s*(Low|Medium|High)/i);
     if (match) {
       const normalized = match[1].toLowerCase();
-      if (normalized === 'low') return 'Low';
-      if (normalized === 'medium') return 'Medium';
-      if (normalized === 'high') return 'High';
+      if (normalized === 'low') {
+        return 'Low';
+      }
+      if (normalized === 'medium') {
+        return 'Medium';
+      }
+      if (normalized === 'high') {
+        return 'High';
+      }
     }
   }
 
@@ -238,19 +267,31 @@ function extractTaskOrigin(result: unknown, payload: unknown): TaskOrigin {
     const obj = result as Record<string, unknown>;
     if (typeof obj.origin === 'string' && obj.origin.trim() !== '') {
       const normalized = obj.origin.trim().toUpperCase();
-      if (normalized === 'MANUAL') return 'MANUAL';
-      if (normalized === 'WEBHOOK') return 'WEBHOOK';
+      if (normalized === 'MANUAL') {
+        return 'MANUAL';
+      }
+      if (normalized === 'WEBHOOK') {
+        return 'WEBHOOK';
+      }
     }
   }
 
   if (payload && typeof payload === 'object' && !Array.isArray(payload)) {
     const payloadObj = payload as Record<string, unknown>;
-    if (payloadObj.metadata && typeof payloadObj.metadata === 'object' && !Array.isArray(payloadObj.metadata)) {
+    if (
+      payloadObj.metadata &&
+      typeof payloadObj.metadata === 'object' &&
+      !Array.isArray(payloadObj.metadata)
+    ) {
       const meta = payloadObj.metadata as Record<string, unknown>;
       if (typeof meta.origin === 'string' && meta.origin.trim() !== '') {
         const normalized = meta.origin.trim().toUpperCase();
-        if (normalized === 'MANUAL') return 'MANUAL';
-        if (normalized === 'WEBHOOK') return 'WEBHOOK';
+        if (normalized === 'MANUAL') {
+          return 'MANUAL';
+        }
+        if (normalized === 'WEBHOOK') {
+          return 'WEBHOOK';
+        }
       }
     }
   }
@@ -299,11 +340,21 @@ export async function getDashboardStats(): Promise<{
 
   for (const row of groupedStatuses) {
     const status = row.status.toLowerCase();
-    if (status === 'pending') statusCounts.pending = row._count.status;
-    if (status === 'processing') statusCounts.processing = row._count.status;
-    if (status === 'completed') statusCounts.completed = row._count.status;
-    if (status === 'failed') statusCounts.failed = row._count.status;
-    if (status === 'stuck') statusCounts.stuck = row._count.status;
+    if (status === 'pending') {
+      statusCounts.pending = row._count.status;
+    }
+    if (status === 'processing') {
+      statusCounts.processing = row._count.status;
+    }
+    if (status === 'completed') {
+      statusCounts.completed = row._count.status;
+    }
+    if (status === 'failed') {
+      statusCounts.failed = row._count.status;
+    }
+    if (status === 'stuck') {
+      statusCounts.stuck = row._count.status;
+    }
   }
 
   const riskDistribution = {

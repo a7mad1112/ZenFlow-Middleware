@@ -49,17 +49,27 @@ function buildPayloadSummary(payload?: Record<string, unknown>): string {
     payload.customer && typeof payload.customer === 'object' && !Array.isArray(payload.customer)
       ? (payload.customer as Record<string, unknown>)
       : null;
-  const customerName = customerObj && typeof customerObj.name === 'string' ? customerObj.name : null;
-  const customerEmail = customerObj && typeof customerObj.email === 'string' ? customerObj.email : null;
+  const customerName =
+    customerObj && typeof customerObj.name === 'string' ? customerObj.name : null;
+  const customerEmail =
+    customerObj && typeof customerObj.email === 'string' ? customerObj.email : null;
 
   const totalValue = typeof payload.total === 'number' ? payload.total : null;
   const currency = typeof payload.currency === 'string' ? payload.currency : null;
 
   const lines: string[] = [];
-  if (eventType) lines.push(`Event: ${eventType}`);
-  if (orderId) lines.push(`Order ID: ${orderId}`);
-  if (customerName) lines.push(`Customer: ${customerName}`);
-  if (customerEmail) lines.push(`Email: ${customerEmail}`);
+  if (eventType) {
+    lines.push(`Event: ${eventType}`);
+  }
+  if (orderId) {
+    lines.push(`Order ID: ${orderId}`);
+  }
+  if (customerName) {
+    lines.push(`Customer: ${customerName}`);
+  }
+  if (customerEmail) {
+    lines.push(`Email: ${customerEmail}`);
+  }
   if (totalValue !== null) {
     const totalText = currency ? `${totalValue} ${currency}` : `${totalValue}`;
     lines.push(`Total: ${totalText}`);

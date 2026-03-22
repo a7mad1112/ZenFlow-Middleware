@@ -74,8 +74,100 @@ type TriggerPipelineRequest = z.infer<typeof triggerPipelineSchema>;
 
 export function setupPipelineRoutes(app: Express): void {
   /**
+  * @swagger
+  * /pipelines:
+   *   post:
+   *     tags:
+   *       - Pipelines
+   *     summary: Create a pipeline
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             $ref: '#/components/schemas/PipelineInput'
+   *     responses:
+   *       201:
+   *         description: Pipeline created
+  *         content:
+  *           application/json:
+  *             schema:
+  *               type: object
+  *               properties:
+  *                 success:
+  *                   type: boolean
+  *                   example: true
+  *                 message:
+  *                   type: string
+  *                   example: Pipeline created successfully
+  *                 data:
+  *                   $ref: '#/components/schemas/Pipeline'
+   *       400:
+   *         description: Validation error
+   *       409:
+   *         description: Duplicate pipeline name
+   *       500:
+   *         description: Internal server error
+   *   get:
+   *     tags:
+   *       - Pipelines
+   *     summary: List pipelines
+   *     responses:
+   *       200:
+   *         description: Pipelines retrieved
+  *         content:
+  *           application/json:
+  *             schema:
+  *               type: object
+  *               properties:
+  *                 success:
+  *                   type: boolean
+  *                   example: true
+  *                 message:
+  *                   type: string
+  *                   example: Retrieved 2 pipeline(s)
+  *                 data:
+  *                   type: array
+  *                   items:
+  *                     $ref: '#/components/schemas/PipelineWithSubscribers'
+   *       500:
+   *         description: Internal server error
+   */
+  /**
    * POST /api/pipelines
    * Create a new pipeline
+   */
+  /**
+   * @swagger
+   * /pipelines:
+   *   post:
+   *     summary: Create a pipeline
+   *     tags:
+   *       - Pipelines
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             $ref: '#/components/schemas/PipelineInput'
+   *           example:
+   *             name: Orders Pipeline
+   *             description: Processes order webhooks end-to-end
+   *             actionType: CONVERTER
+   *             rateLimit: 60
+   *             enabledActions:
+   *               - CONVERTER
+   *               - AI_SUMMARIZER
+   *               - EMAIL
+   *             emailEnabled: true
+   *             discordEnabled: false
+   *             config:
+   *               source: ecommerce
+   *     responses:
+   *       201:
+   *         description: Pipeline created
+   *       400:
+   *         description: Validation error
    */
   app.post('/api/pipelines', async (req: Request, res: Response): Promise<void> => {
     try {
@@ -130,6 +222,19 @@ export function setupPipelineRoutes(app: Express): void {
    * GET /api/pipelines
    * List all pipelines with their subscribers
    */
+  /**
+   * @swagger
+   * /pipelines:
+   *   get:
+   *     summary: List pipelines
+   *     tags:
+   *       - Pipelines
+   *     responses:
+   *       200:
+   *         description: Pipelines retrieved
+   *       400:
+   *         description: Invalid request
+   */
   app.get('/api/pipelines', async (_req: Request, res: Response): Promise<void> => {
     try {
       const pipelines = await getAllPipelines();
@@ -156,6 +261,136 @@ export function setupPipelineRoutes(app: Express): void {
   });
 
   /**
+    * @swagger
+    * /pipelines/{id}:
+    *   get:
+    *     tags:
+    *       - Pipelines
+    *     summary: Get pipeline by id
+    *     parameters:
+    *       - in: path
+    *         name: id
+    *         required: true
+    *         schema:
+    *           type: string
+    *     responses:
+    *       200:
+    *         description: Pipeline retrieved
+    *         content:
+    *           application/json:
+    *             schema:
+    *               type: object
+    *               properties:
+    *                 success:
+    *                   type: boolean
+    *                 message:
+    *                   type: string
+    *                 data:
+    *                   $ref: '#/components/schemas/PipelineWithSubscribers'
+    *       404:
+    *         description: Pipeline not found
+    *       500:
+    *         description: Internal server error
+    *   put:
+    *     tags:
+    *       - Pipelines
+    *     summary: Replace pipeline fields
+    *     parameters:
+    *       - in: path
+    *         name: id
+    *         required: true
+    *         schema:
+    *           type: string
+    *     requestBody:
+    *       required: true
+    *       content:
+    *         application/json:
+    *           schema:
+    *             $ref: '#/components/schemas/PipelineInput'
+    *     responses:
+    *       200:
+    *         description: Pipeline updated
+    *         content:
+    *           application/json:
+    *             schema:
+    *               type: object
+    *               properties:
+    *                 success:
+    *                   type: boolean
+    *                 message:
+    *                   type: string
+    *                 data:
+    *                   $ref: '#/components/schemas/Pipeline'
+    *       400:
+    *         description: Validation error
+    *       404:
+    *         description: Pipeline not found
+    *       409:
+    *         description: Duplicate pipeline name
+    *       500:
+    *         description: Internal server error
+    *   patch:
+    *     tags:
+    *       - Pipelines
+    *     summary: Partially update pipeline
+    *     parameters:
+    *       - in: path
+    *         name: id
+    *         required: true
+    *         schema:
+    *           type: string
+    *     requestBody:
+    *       required: true
+    *       content:
+    *         application/json:
+    *           schema:
+    *             allOf:
+    *               - $ref: '#/components/schemas/PipelineInput'
+    *     responses:
+    *       200:
+    *         description: Pipeline updated
+    *         content:
+    *           application/json:
+    *             schema:
+    *               type: object
+    *               properties:
+    *                 success:
+    *                   type: boolean
+    *                 message:
+    *                   type: string
+    *                 data:
+    *                   $ref: '#/components/schemas/Pipeline'
+    *       400:
+    *         description: Validation error
+    *       404:
+    *         description: Pipeline not found
+    *       409:
+    *         description: Duplicate pipeline name
+    *       500:
+    *         description: Internal server error
+    *   delete:
+    *     tags:
+    *       - Pipelines
+    *     summary: Delete pipeline
+    *     parameters:
+    *       - in: path
+    *         name: id
+    *         required: true
+    *         schema:
+    *           type: string
+    *     responses:
+    *       200:
+    *         description: Pipeline deleted
+    *         content:
+    *           application/json:
+    *             schema:
+    *               $ref: '#/components/schemas/SuccessResponse'
+    *       404:
+    *         description: Pipeline not found
+    *       500:
+    *         description: Internal server error
+    */
+    /**
    * GET /api/pipelines/:id
    * Get a specific pipeline by ID with subscribers
    */
@@ -400,8 +635,84 @@ export function setupPipelineRoutes(app: Express): void {
   });
 
   /**
+    * @swagger
+    * /pipelines/{id}/trigger:
+    *   post:
+    *     tags:
+    *       - Pipelines
+    *     summary: Manually trigger pipeline execution
+    *     description: Executes a pipeline using ad-hoc payload input for internal testing or replay scenarios.
+    *     parameters:
+    *       - in: path
+    *         name: id
+    *         required: true
+    *         schema:
+    *           type: string
+    *     requestBody:
+    *       required: true
+    *       content:
+    *         application/json:
+    *           schema:
+    *             $ref: '#/components/schemas/TriggerInput'
+    *     responses:
+    *       202:
+    *         description: Trigger accepted
+    *         content:
+    *           application/json:
+    *             schema:
+    *               type: object
+    *               properties:
+    *                 success:
+    *                   type: boolean
+    *                   example: true
+    *                 message:
+    *                   type: string
+    *                   example: Pipeline trigger accepted
+    *                 data:
+    *                   type: object
+    *                   additionalProperties: true
+    *       400:
+    *         description: Validation error
+    *       404:
+    *         description: Pipeline or event webhook not found
+    *       500:
+    *         description: Internal server error
+    */
+    /**
    * POST /api/pipelines/:id/trigger
    * Manually dispatch a pipeline task from internal dashboard
+   */
+  /**
+   * @swagger
+   * /pipelines/{id}/trigger:
+   *   post:
+   *     summary: Manually trigger pipeline execution
+   *     tags:
+   *       - Pipelines
+   *     parameters:
+   *       - in: path
+   *         name: id
+   *         required: true
+   *         schema:
+   *           type: string
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             $ref: '#/components/schemas/TriggerInput'
+   *           example:
+   *             eventType: order.created
+   *             payload:
+   *               orderId: ORD-1001
+   *               amount: 149.99
+   *               customer:
+   *                 email: buyer@example.com
+   *     responses:
+   *       202:
+   *         description: Trigger accepted
+   *       400:
+   *         description: Validation error
    */
   app.post('/api/pipelines/:id/trigger', async (req: Request, res: Response): Promise<void> => {
     try {
@@ -488,6 +799,76 @@ export function setupPipelineRoutes(app: Express): void {
   });
 
   /**
+    * @swagger
+    * /pipelines/{id}/subscribers:
+    *   get:
+    *     tags:
+    *       - Subscribers
+    *     summary: List pipeline subscribers
+    *     parameters:
+    *       - in: path
+    *         name: id
+    *         required: true
+    *         schema:
+    *           type: string
+    *     responses:
+    *       200:
+    *         description: Subscribers retrieved
+    *         content:
+    *           application/json:
+    *             schema:
+    *               type: object
+    *               properties:
+    *                 success:
+    *                   type: boolean
+    *                 message:
+    *                   type: string
+    *                 data:
+    *                   type: array
+    *                   items:
+    *                     $ref: '#/components/schemas/Subscriber'
+    *       404:
+    *         description: Pipeline not found
+    *       500:
+    *         description: Internal server error
+    *   post:
+    *     tags:
+    *       - Subscribers
+    *     summary: Add a subscriber to pipeline
+    *     parameters:
+    *       - in: path
+    *         name: id
+    *         required: true
+    *         schema:
+    *           type: string
+    *     requestBody:
+    *       required: true
+    *       content:
+    *         application/json:
+    *           schema:
+    *             $ref: '#/components/schemas/SubscriberInput'
+    *     responses:
+    *       201:
+    *         description: Subscriber added
+    *         content:
+    *           application/json:
+    *             schema:
+    *               type: object
+    *               properties:
+    *                 success:
+    *                   type: boolean
+    *                 message:
+    *                   type: string
+    *                 data:
+    *                   $ref: '#/components/schemas/Subscriber'
+    *       400:
+    *         description: Validation error
+    *       404:
+    *         description: Pipeline not found
+    *       500:
+    *         description: Internal server error
+    */
+    /**
    * GET /api/pipelines/:id/subscribers
    * Get all subscribers for a pipeline
    */
@@ -590,6 +971,36 @@ export function setupPipelineRoutes(app: Express): void {
   );
 
   /**
+    * @swagger
+    * /pipelines/{id}/subscribers/{subscriberId}:
+    *   delete:
+    *     tags:
+    *       - Subscribers
+    *     summary: Remove subscriber from pipeline
+    *     parameters:
+    *       - in: path
+    *         name: id
+    *         required: true
+    *         schema:
+    *           type: string
+    *       - in: path
+    *         name: subscriberId
+    *         required: true
+    *         schema:
+    *           type: string
+    *     responses:
+    *       200:
+    *         description: Subscriber removed
+    *         content:
+    *           application/json:
+    *             schema:
+    *               $ref: '#/components/schemas/SuccessResponse'
+    *       404:
+    *         description: Subscriber not found
+    *       500:
+    *         description: Internal server error
+    */
+    /**
    * DELETE /api/pipelines/:id/subscribers/:subscriberId
    * Remove a subscriber target URL from pipeline outbound connectors
    */

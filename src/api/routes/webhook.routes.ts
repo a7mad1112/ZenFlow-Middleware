@@ -11,12 +11,41 @@ const ingestWebhookSchema = z.object({
 
 export function setupWebhookRoutes(app: Express): void {
   /**
-   * POST /api/webhooks/:pipelineId
-   * Ingests webhook data for a specific webhook and queues it for processing
-   *
-   * @param pipelineId - The pipeline ID from URL params
-   * @body payload - Any JSON object to be processed
-   * @returns 202 Accepted with tracking logId
+   * @swagger
+   * /webhooks/{pipelineId}:
+   *   post:
+   *     summary: Ingest webhook payload for a pipeline
+   *     tags:
+   *       - Webhooks
+   *     parameters:
+   *       - in: path
+   *         name: pipelineId
+   *         required: true
+   *         schema:
+   *           type: string
+   *         description: Pipeline identifier
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             additionalProperties: true
+   *           example:
+   *             eventType: order.created
+   *             orderId: ORD-1001
+   *             customer:
+   *               email: buyer@example.com
+   *             total: 149.99
+   *     responses:
+   *       202:
+   *         description: Webhook accepted for processing
+   *       400:
+   *         description: Invalid payload or routing mismatch
+   *       429:
+   *         description: Too many requests
+  *       500:
+  *         description: Internal server error
    */
   app.post('/api/webhooks/:pipelineId', webhookIngestionRateLimiter, async (req: Request, res: Response): Promise<void> => {
     const { pipelineId } = req.params;

@@ -10,6 +10,7 @@ import { setupPipelineRoutes } from './api/routes/pipeline.routes.js';
 import { setupWebhookRoutes } from './api/routes/webhook.routes.js';
 import { setupDashboardRoutes } from './api/routes/dashboard.routes.js';
 import { setupAiRoutes } from './api/routes/ai.routes.js';
+import { setupSwaggerDocs } from './docs/swagger.js';
 
 const app: Express = express();
 
@@ -45,6 +46,7 @@ setupPipelineRoutes(app);
 setupWebhookRoutes(app);
 setupDashboardRoutes(app);
 setupAiRoutes(app);
+setupSwaggerDocs(app);
 
 async function main(): Promise<void> {
   try {

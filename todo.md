@@ -79,9 +79,13 @@ Integration Tests for the full Ingestion -> Queue -> Worker lifecycle.
 
 Automate Lint, Build, and Test checks on every Push/Pull Request.
 
-[ ] Interactive API Docs:
+[x] Interactive API Docs (Verified & Fixed):
 
-Setup Swagger/OpenAPI so external users know how to interact with your API.
+Swagger/OpenAPI now uses explicit path definitions in src/docs/swagger.ts (no route auto-scanning), and endpoint docs are confirmed visible in Swagger UI.
+
+[x] Swagger Try-it-out Endpoints Functional:
+
+Verified Swagger route discovery and executable endpoint mappings for webhook ingestion and pipeline APIs.
 
 Phase 5: AI Ops & Intelligence
 Goal: Transition from "Monitoring" to "Predictive Operations".

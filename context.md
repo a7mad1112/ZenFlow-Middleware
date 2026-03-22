@@ -379,6 +379,7 @@
 - Outbound Middleware Path: worker completion -> validate active core actions (`XML`, `AI`, `PDF`) succeeded with outputs -> subscriber lookup (`Subscriber.isActive`) -> unified result dispatch (5s timeout) -> per-delivery auditing in `delivery_logs`.
 - Discord Routing Priority: matched webhook `targetUrl/url` -> configured fallback webhook URL (`DISCORD_WEBHOOK_URL`) -> skip with reason if no message content.
 - AI Ops Path: Webhook Logs -> RAG Snapshot Service -> Gemini 2.5 Flash -> Dashboard Chat Widget.
+- API Documentation Path: Swagger UI is served at `GET /api-docs` with OpenAPI 3.0 generated from route annotations.
 
 ### 41. Outbound Connectors (Subscriber Delivery) (Complete)
 - Added outbound delivery auditing model in Prisma (`DeliveryLog`) with relations to `Subscriber` and `Task` plus indexed lookup fields (`subscriberId`, `taskId`, `createdAt`).
@@ -496,6 +497,22 @@
 - Create/Update pipeline API contracts now accept `rateLimit` with validation bounds (`1..1000`).
 - Dashboard pipeline creation form now includes `Rate Limit (Requests/Min)` input.
 - Dashboard pipeline cards now include an edit control to update per-pipeline rate limit inline.
+
+### 45. Interactive API Documentation (Swagger/OpenAPI) (Complete)
+- Added OpenAPI 3.0 documentation setup in `src/docs/swagger.ts` using:
+  - `swagger-jsdoc` for spec generation
+  - `swagger-ui-express` for interactive docs UI.
+- Mounted Swagger UI in application bootstrap (`src/index.ts`) at:
+  - `GET /api-docs`.
+- Access instructions for reviewers/developers:
+  - Start backend: `npm run dev`
+  - Open browser: `http://localhost:3000/api-docs`
+- Added route-level OpenAPI annotations for key surfaces:
+  - Webhook ingestion (`POST /api/webhooks/{pipelineId}`) including rate-limit `429` response.
+  - Pipeline CRUD (`GET/POST /api/pipelines`, `GET/PUT/PATCH/DELETE /api/pipelines/{id}`).
+  - Manual trigger (`POST /api/pipelines/{id}/trigger`).
+  - Subscriber management (`GET/POST /api/pipelines/{id}/subscribers`, `DELETE /api/pipelines/{id}/subscribers/{subscriberId}`).
+- Documentation schemas now include latest contract fields such as `rateLimit` and subscriber payload models.
 
 ## Milestones
 1. Backend Automation Platform: Complete

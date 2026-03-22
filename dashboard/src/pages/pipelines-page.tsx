@@ -8,14 +8,18 @@ import { Button } from '../components/ui/button';
 import { Card } from '../components/ui/card';
 import { ConfirmationModal } from '../components/ui/confirmation-modal';
 import {
+  createPipelineSubscriber,
   createPipeline,
   createPipelineWebhook,
+  deletePipelineSubscriber,
   deletePipeline,
+  getPipelineSubscribers,
   getPipelineWebhooks,
   getPipelines,
   toggleAction,
   type ActionType,
   type Pipeline,
+  type PipelineSubscriber,
   type PipelineWebhook,
   triggerPipeline,
   updatePipelineWebhookStatus,
@@ -122,9 +126,11 @@ export function PipelinesPage() {
   const navigate = useNavigate();
   const [pipelines, setPipelines] = useState<Pipeline[]>([]);
   const [webhooksByPipeline, setWebhooksByPipeline] = useState<Record<string, PipelineWebhook[]>>({});
+  const [subscribersByPipeline, setSubscribersByPipeline] = useState<Record<string, PipelineSubscriber[]>>({});
   const [newWebhookByPipeline, setNewWebhookByPipeline] = useState<
     Record<string, { eventType: string; url: string; isActive: boolean }>
   >({});
+  const [newSubscriberUrlByPipeline, setNewSubscriberUrlByPipeline] = useState<Record<string, string>>({});
   const [state, setState] = useState<LoadState>('idle');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [triggerModalPipelineId, setTriggerModalPipelineId] = useState<string | null>(null);
@@ -167,9 +173,23 @@ export function PipelinesPage() {
         })),
       );
 
+      const subscriberPairs = await Promise.all(
+        data.map(async (pipeline) => ({
+          pipelineId: pipeline.id,
+          subscribers: await getPipelineSubscribers(pipeline.id),
+        })),
+      );
+
       setWebhooksByPipeline(
         webhookPairs.reduce<Record<string, PipelineWebhook[]>>((acc, item) => {
           acc[item.pipelineId] = item.webhooks;
+          return acc;
+        }, {}),
+      );
+
+      setSubscribersByPipeline(
+        subscriberPairs.reduce<Record<string, PipelineSubscriber[]>>((acc, item) => {
+          acc[item.pipelineId] = item.subscribers;
           return acc;
         }, {}),
       );
@@ -183,6 +203,16 @@ export function PipelinesPage() {
               url: '',
               isActive: true,
             };
+          }
+        }
+        return next;
+      });
+
+      setNewSubscriberUrlByPipeline((prev) => {
+        const next = { ...prev };
+        for (const pipeline of data) {
+          if (typeof next[pipeline.id] !== 'string') {
+            next[pipeline.id] = '';
           }
         }
         return next;
@@ -296,6 +326,52 @@ export function PipelinesPage() {
       }));
     } catch {
       setErrorMessage('Failed to update webhook status.');
+    } finally {
+      setBusyAction(null);
+    }
+  }
+
+  async function handleAddSubscriber(pipelineId: string) {
+    const targetUrl = (newSubscriberUrlByPipeline[pipelineId] ?? '').trim();
+    if (!targetUrl) {
+      setErrorMessage('Subscriber URL is required.');
+      return;
+    }
+
+    setBusyAction(`subscriber-create:${pipelineId}`);
+    setErrorMessage(null);
+    setSuccessMessage(null);
+    try {
+      await createPipelineSubscriber(pipelineId, { targetUrl });
+      const refreshed = await getPipelineSubscribers(pipelineId);
+      setSubscribersByPipeline((prev) => ({
+        ...prev,
+        [pipelineId]: refreshed,
+      }));
+      setNewSubscriberUrlByPipeline((prev) => ({
+        ...prev,
+        [pipelineId]: '',
+      }));
+    } catch {
+      setErrorMessage('Failed to add subscriber URL.');
+    } finally {
+      setBusyAction(null);
+    }
+  }
+
+  async function handleRemoveSubscriber(pipelineId: string, subscriberId: string) {
+    setBusyAction(`subscriber-delete:${subscriberId}`);
+    setErrorMessage(null);
+    setSuccessMessage(null);
+    try {
+      await deletePipelineSubscriber(pipelineId, subscriberId);
+      const refreshed = await getPipelineSubscribers(pipelineId);
+      setSubscribersByPipeline((prev) => ({
+        ...prev,
+        [pipelineId]: refreshed,
+      }));
+    } catch {
+      setErrorMessage('Failed to remove subscriber URL.');
     } finally {
       setBusyAction(null);
     }
@@ -484,6 +560,65 @@ export function PipelinesPage() {
                   onClick={() => handleAddWebhook(pipeline.id)}
                 >
                   {busyAction === `webhook-create:${pipeline.id}` ? 'Saving...' : 'Add Event'}
+                </Button>
+              </div>
+            </div>
+
+            <div className="space-y-3 rounded-lg border border-zinc-800/80 bg-zinc-900/40 p-3">
+              <p className="text-xs uppercase tracking-wide text-zinc-500">Subscribers</p>
+
+              <div className="space-y-2">
+                {(subscribersByPipeline[pipeline.id] ?? []).map((subscriber) => (
+                  <div
+                    key={subscriber.id}
+                    className="flex items-center justify-between gap-2 rounded-md border border-zinc-800 px-3 py-2"
+                  >
+                    <div className="min-w-0">
+                      <p className="truncate text-xs text-zinc-200" title={subscriber.targetUrl}>
+                        {subscriber.targetUrl}
+                      </p>
+                      <p className="mt-1 text-[11px] text-zinc-500">Added {formatShortDate(subscriber.createdAt)}</p>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      className="px-2"
+                      aria-label="Remove subscriber"
+                      onClick={() => handleRemoveSubscriber(pipeline.id, subscriber.id)}
+                      disabled={busyAction === `subscriber-delete:${subscriber.id}`}
+                    >
+                      {busyAction === `subscriber-delete:${subscriber.id}` ? (
+                        <Loader2 className="animate-spin" size={15} />
+                      ) : (
+                        <Trash2 size={15} />
+                      )}
+                    </Button>
+                  </div>
+                ))}
+                {(subscribersByPipeline[pipeline.id] ?? []).length === 0 && (
+                  <p className="text-xs text-zinc-500">No subscriber URLs configured yet.</p>
+                )}
+              </div>
+
+              <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
+                <input
+                  value={newSubscriberUrlByPipeline[pipeline.id] ?? ''}
+                  onChange={(event) =>
+                    setNewSubscriberUrlByPipeline((prev) => ({
+                      ...prev,
+                      [pipeline.id]: event.target.value,
+                    }))
+                  }
+                  placeholder="https://subscriber.example.com/ingest"
+                  className="rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-xs text-zinc-100"
+                />
+                <Button
+                  type="button"
+                  className="text-xs"
+                  disabled={busyAction === `subscriber-create:${pipeline.id}`}
+                  onClick={() => handleAddSubscriber(pipeline.id)}
+                >
+                  {busyAction === `subscriber-create:${pipeline.id}` ? 'Adding...' : 'Add Subscriber'}
                 </Button>
               </div>
             </div>

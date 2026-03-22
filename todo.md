@@ -33,19 +33,19 @@ This ensures quick recovery for minor network blips while backing off to protect
 Phase 2: Outbound Connectors (Subscriber Delivery)
 Goal: Transform the platform into a Middleware for programmatic systems.
 
-[ ] Subscriber Management System:
+[x] Subscriber Management System:
 
 Schema update: Create a Subscribers table linked to Pipelines (1:N).
 
 UI: Add a management section for external target URLs (Webhooks Outbound).
 
-[ ] Outbound Webhook Dispatcher:
+[x] Outbound Webhook Dispatcher:
 
 Build a Dispatcher Service to perform HTTP POST requests to external systems upon task completion.
 
 Standardize the "Unified Result" payload (XML body + AI Insight + PDF URL + Audit Metadata).
 
-[ ] Delivery Auditing:
+[x] Delivery Auditing:
 
 Log every outbound attempt with HTTP status codes and response bodies for external troubleshooting.
 

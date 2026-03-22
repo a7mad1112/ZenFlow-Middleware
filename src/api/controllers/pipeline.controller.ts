@@ -491,6 +491,48 @@ export async function getSubscribersByPipelineId(
 }
 
 /**
+ * Remove a subscriber from a pipeline
+ */
+export async function removeSubscriber(
+  pipelineId: string,
+  subscriberId: string
+): Promise<void> {
+  try {
+    const subscriber = await prisma.subscriber.findFirst({
+      where: {
+        id: subscriberId,
+        pipelineId,
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    if (!subscriber) {
+      throw new Error(`Subscriber ${subscriberId} not found for pipeline ${pipelineId}`);
+    }
+
+    await prisma.subscriber.delete({
+      where: {
+        id: subscriberId,
+      },
+    });
+
+    logger.info('Subscriber removed successfully', {
+      pipeline_id: pipelineId,
+      subscriber_id: subscriberId,
+    });
+  } catch (error) {
+    logger.error('Failed to remove subscriber', {
+      pipeline_id: pipelineId,
+      subscriber_id: subscriberId,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    throw error;
+  }
+}
+
+/**
  * Trigger a pipeline manually from internal dashboard UI
  */
 export async function triggerPipelineManually(

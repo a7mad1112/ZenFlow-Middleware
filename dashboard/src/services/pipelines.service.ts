@@ -25,6 +25,14 @@ export interface PipelineWebhook {
   updatedAt: string;
 }
 
+export interface PipelineSubscriber {
+  id: string;
+  targetUrl: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface CreatePipelineInput {
   name: string;
   description?: string;
@@ -49,6 +57,10 @@ export interface CreatePipelineWebhookInput {
   eventType: string;
   url: string;
   isActive?: boolean;
+}
+
+export interface CreatePipelineSubscriberInput {
+  targetUrl: string;
 }
 
 export interface TriggerPipelineInput {
@@ -98,6 +110,16 @@ function normalizeWebhook(input: Partial<PipelineWebhook>): PipelineWebhook {
     pipelineId: String(input.pipelineId ?? ''),
     eventType: String(input.eventType ?? ''),
     url: String(input.url ?? ''),
+    isActive: Boolean(input.isActive),
+    createdAt: String(input.createdAt ?? new Date(0).toISOString()),
+    updatedAt: String(input.updatedAt ?? new Date(0).toISOString()),
+  };
+}
+
+function normalizeSubscriber(input: Partial<PipelineSubscriber>): PipelineSubscriber {
+  return {
+    id: String(input.id ?? ''),
+    targetUrl: String(input.targetUrl ?? ''),
     isActive: Boolean(input.isActive),
     createdAt: String(input.createdAt ?? new Date(0).toISOString()),
     updatedAt: String(input.updatedAt ?? new Date(0).toISOString()),
@@ -194,4 +216,26 @@ export async function triggerPipeline(
   );
 
   return response.data.data;
+}
+
+export async function getPipelineSubscribers(pipelineId: string): Promise<PipelineSubscriber[]> {
+  const response = await apiClient.get<ApiEnvelope<PipelineSubscriber[]>>(`/api/pipelines/${pipelineId}/subscribers`);
+  const items = Array.isArray(response.data.data) ? response.data.data : [];
+  return items.map((item) => normalizeSubscriber(item));
+}
+
+export async function createPipelineSubscriber(
+  pipelineId: string,
+  data: CreatePipelineSubscriberInput,
+): Promise<PipelineSubscriber> {
+  const response = await apiClient.post<ApiEnvelope<PipelineSubscriber>>(
+    `/api/pipelines/${pipelineId}/subscribers`,
+    data,
+  );
+
+  return normalizeSubscriber(response.data.data);
+}
+
+export async function deletePipelineSubscriber(pipelineId: string, subscriberId: string): Promise<void> {
+  await apiClient.delete(`/api/pipelines/${pipelineId}/subscribers/${subscriberId}`);
 }

@@ -376,8 +376,32 @@
 ## Architecture Flow (Current)
 - External Event Ingestion Path: `POST /api/webhooks/:id` -> eventType match (`eventType` | `type` | `event`) -> active WebhookConfiguration selection -> queue -> worker actions -> logs/dashboard.
 - Internal Manual Dispatch Path: Dashboard `Run Pipeline` modal -> `POST /api/pipelines/:id/trigger` -> task creation (`origin: MANUAL`) -> queue -> worker actions -> logs/dashboard.
+- Outbound Middleware Path: worker completion -> validate active core actions (`XML`, `AI`, `PDF`) succeeded with outputs -> subscriber lookup (`Subscriber.isActive`) -> unified result dispatch (5s timeout) -> per-delivery auditing in `delivery_logs`.
 - Discord Routing Priority: matched webhook `targetUrl/url` -> configured fallback webhook URL (`DISCORD_WEBHOOK_URL`) -> skip with reason if no message content.
 - AI Ops Path: Webhook Logs -> RAG Snapshot Service -> Gemini 2.5 Flash -> Dashboard Chat Widget.
+
+### 41. Outbound Connectors (Subscriber Delivery) (Complete)
+- Added outbound delivery auditing model in Prisma (`DeliveryLog`) with relations to `Subscriber` and `Task` plus indexed lookup fields (`subscriberId`, `taskId`, `createdAt`).
+- Added migration `prisma/migrations/20260322130000_add_delivery_logs/migration.sql` creating `delivery_logs` with FK integrity and cascade cleanup.
+- Implemented unified outbound dispatcher in `src/services/dispatcher.service.ts`:
+  - fetches completed task context + active subscribers for pipeline
+  - sends unified payload: `{ taskId, origin, eventType, xmlOutput, aiSummary, pdfUrl, originalPayload, timestamp }`
+  - enforces strict connector timeout (`5000ms`) per subscriber POST
+  - records success/failure attempt metadata in `DeliveryLog` (status code, response body, duration).
+- Integrated dispatcher into worker completion path in `src/worker/engine.ts` as non-blocking middleware behavior:
+  - outbound failures are logged and audited
+  - core task completion is not failed by subscriber delivery issues.
+- Extended pipeline subscriber APIs:
+  - added removal endpoint `DELETE /api/pipelines/:id/subscribers/:subscriberId` in `src/api/routes/pipeline.routes.ts`
+  - controller support in `src/api/controllers/pipeline.controller.ts`.
+- Added dashboard subscriber management UI in `dashboard/src/pages/pipelines-page.tsx`:
+  - list subscribers per pipeline
+  - add subscriber target URL
+  - remove subscriber target URL.
+- Added frontend subscriber service integration in `dashboard/src/services/pipelines.service.ts`:
+  - `getPipelineSubscribers`
+  - `createPipelineSubscriber`
+  - `deletePipelineSubscriber`.
 
 ### 37. Architecture Sync: Manual Dispatch, Event Routing, Action Toggles, Discord Resilience, Origin Audit (Complete)
 - Manual Dispatcher (UI -> Internal Path):
@@ -437,6 +461,18 @@
 - Improved failure card label to distinguish exhausted retries (`Task stuck after retries`) from normal failures.
 - Updated backend manual retry in `src/api/controllers/webhook.controller.ts` to reset `attempts` to `0` when re-enqueuing a task.
 - Recovery flow now correctly restarts retry budget after manual operator intervention.
+
+### 42. Subscriber Dispatch Completion Gate (Complete)
+- Tightened outbound delivery gate in `src/services/dispatcher.service.ts` so subscribers are called only after active core worker actions are fully successful:
+  - Core actions considered: `xml`, `ai`, `pdf`
+  - Active means action state is not `skipped`
+  - Every active core action must be `success`
+  - Required output must exist for each active core action (`xmlOutput`, `aiSummary`, `pdfUrl`).
+- Dispatcher now skips delivery with explicit reason logging when core actions are pending/failed/missing output.
+- Unified payload now includes explicit combined core outputs in `combinedResults`:
+  - `xml`
+  - `ai`
+  - `pdf`
 
 ## Milestones
 1. Backend Automation Platform: Complete

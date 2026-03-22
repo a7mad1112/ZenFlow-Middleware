@@ -7,6 +7,7 @@ import { sendXmlToDiscord } from '../services/discord.service.js';
 import { emailService } from '../services/email.service.js';
 import { generateInvoice } from '../services/pdf.service.js';
 import { aiService } from '../services/ai.service.js';
+import { dispatchUnifiedResult } from '../services/dispatcher.service.js';
 
 const prisma = new PrismaClient();
 
@@ -708,6 +709,17 @@ async function processTask(taskData: TaskPayload): Promise<void> {
       pipelineId,
       attemptNumber,
     });
+
+    // Outbound connector delivery is non-blocking for main task success.
+    try {
+      await dispatchUnifiedResult(logId, pipelineId);
+    } catch (dispatchError) {
+      logger.warn('Unified outbound dispatch failed (non-blocking)', {
+        taskId: logId,
+        pipelineId,
+        error: dispatchError instanceof Error ? dispatchError.message : String(dispatchError),
+      });
+    }
   } catch (error) {
     logger.error('Task processing failed', {
       taskId: logId,

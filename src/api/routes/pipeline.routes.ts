@@ -10,6 +10,7 @@ import {
   getPipelineHealth,
   deletePipeline,
   getSubscribersByPipelineId,
+  removeSubscriber,
   triggerPipelineManually,
 } from '../controllers/pipeline.controller.js';
 import {
@@ -573,6 +574,44 @@ export function setupPipelineRoutes(app: Express): void {
           res.status(404).json({
             success: false,
             message: 'Pipeline not found',
+          });
+        } else {
+          res.status(500).json({
+            success: false,
+            message: 'Internal server error',
+          });
+        }
+      }
+    }
+  );
+
+  /**
+   * DELETE /api/pipelines/:id/subscribers/:subscriberId
+   * Remove a subscriber target URL from pipeline outbound connectors
+   */
+  app.delete(
+    '/api/pipelines/:id/subscribers/:subscriberId',
+    async (req: Request, res: Response): Promise<void> => {
+      try {
+        const { id, subscriberId } = req.params;
+
+        await removeSubscriber(id, subscriberId);
+
+        res.status(200).json({
+          success: true,
+          message: 'Subscriber removed successfully',
+        });
+      } catch (error) {
+        logger.error('DELETE /api/pipelines/:id/subscribers/:subscriberId failed', {
+          error: error instanceof Error ? error.message : String(error),
+          pipeline_id: req.params.id,
+          subscriber_id: req.params.subscriberId,
+        });
+
+        if (error instanceof Error && error.message.includes('not found')) {
+          res.status(404).json({
+            success: false,
+            message: 'Subscriber not found',
           });
         } else {
           res.status(500).json({

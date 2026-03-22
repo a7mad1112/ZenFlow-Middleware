@@ -17,6 +17,7 @@ import {
   getPipelineWebhooks,
   getPipelines,
   toggleAction,
+  updatePipeline,
   type ActionType,
   type Pipeline,
   type PipelineSubscriber,
@@ -38,6 +39,12 @@ const actionItems: Array<{ key: ActionType; label: string }> = [
 const pipelineSchema = Yup.object({
   name: Yup.string().trim().required('Name is required').max(255, 'Name is too long'),
   description: Yup.string().max(1000, 'Description is too long').optional(),
+  rateLimit: Yup.number()
+    .typeError('Rate limit must be a number')
+    .integer('Rate limit must be an integer')
+    .min(1, 'Rate limit must be at least 1')
+    .max(1000, 'Rate limit must not exceed 1000')
+    .required('Rate limit is required'),
 });
 
 function formatDate(value: string): string {
@@ -131,6 +138,7 @@ export function PipelinesPage() {
     Record<string, { eventType: string; url: string; isActive: boolean }>
   >({});
   const [newSubscriberUrlByPipeline, setNewSubscriberUrlByPipeline] = useState<Record<string, string>>({});
+  const [rateLimitDraftByPipeline, setRateLimitDraftByPipeline] = useState<Record<string, string>>({});
   const [state, setState] = useState<LoadState>('idle');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [triggerModalPipelineId, setTriggerModalPipelineId] = useState<string | null>(null);
@@ -213,6 +221,16 @@ export function PipelinesPage() {
         for (const pipeline of data) {
           if (typeof next[pipeline.id] !== 'string') {
             next[pipeline.id] = '';
+          }
+        }
+        return next;
+      });
+
+      setRateLimitDraftByPipeline((prev) => {
+        const next = { ...prev };
+        for (const pipeline of data) {
+          if (typeof next[pipeline.id] !== 'string') {
+            next[pipeline.id] = String(pipeline.rateLimit ?? 60);
           }
         }
         return next;
@@ -377,6 +395,29 @@ export function PipelinesPage() {
     }
   }
 
+  async function handleSaveRateLimit(pipelineId: string) {
+    const raw = (rateLimitDraftByPipeline[pipelineId] ?? '').trim();
+    const parsed = Number(raw);
+
+    if (!Number.isInteger(parsed) || parsed < 1 || parsed > 1000) {
+      setErrorMessage('Rate Limit must be an integer between 1 and 1000.');
+      return;
+    }
+
+    setBusyAction(`rate-limit-save:${pipelineId}`);
+    setErrorMessage(null);
+    setSuccessMessage(null);
+    try {
+      await updatePipeline(pipelineId, { rateLimit: parsed });
+      await fetchPipelines();
+      setSuccessMessage('Rate limit updated successfully.');
+    } catch {
+      setErrorMessage('Failed to update rate limit.');
+    } finally {
+      setBusyAction(null);
+    }
+  }
+
   return (
     <section className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -454,6 +495,36 @@ export function PipelinesPage() {
               </p>
               <p className="mt-2 text-xs uppercase tracking-wide text-zinc-500">Created Date</p>
               <p className="mt-1 text-sm text-zinc-300">{formatShortDate(pipeline.createdAt)}</p>
+              <p className="mt-2 text-xs uppercase tracking-wide text-zinc-500">Rate Limit</p>
+              <p className="mt-1 text-sm text-zinc-300">{pipeline.rateLimit} req/min</p>
+            </div>
+
+            <div className="space-y-2 rounded-lg border border-zinc-800/80 bg-zinc-900/40 p-3">
+              <p className="text-xs uppercase tracking-wide text-zinc-500">Edit Rate Limit (Requests/Min)</p>
+              <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
+                <input
+                  type="number"
+                  min={1}
+                  max={1000}
+                  step={1}
+                  value={rateLimitDraftByPipeline[pipeline.id] ?? String(pipeline.rateLimit ?? 60)}
+                  onChange={(event) =>
+                    setRateLimitDraftByPipeline((prev) => ({
+                      ...prev,
+                      [pipeline.id]: event.target.value,
+                    }))
+                  }
+                  className="rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-xs text-zinc-100"
+                />
+                <Button
+                  type="button"
+                  className="text-xs"
+                  disabled={busyAction === `rate-limit-save:${pipeline.id}`}
+                  onClick={() => handleSaveRateLimit(pipeline.id)}
+                >
+                  {busyAction === `rate-limit-save:${pipeline.id}` ? 'Saving...' : 'Save Rate Limit'}
+                </Button>
+              </div>
             </div>
 
             <div className="space-y-2 rounded-lg border border-zinc-800/80 bg-zinc-900/40 p-3">
@@ -668,6 +739,7 @@ export function PipelinesPage() {
               initialValues={{
                 name: '',
                 description: '',
+                rateLimit: 60,
                 xmlEnabled: true,
                 aiEnabled: false,
                 pdfEnabled: false,
@@ -699,6 +771,7 @@ export function PipelinesPage() {
                     name: values.name.trim(),
                     description: values.description.trim() || undefined,
                     actionType: derivedPrimaryAction,
+                    rateLimit: Math.max(1, Math.min(1000, Math.floor(Number(values.rateLimit) || 60))),
                     enabledActions,
                     emailEnabled: values.emailEnabled,
                     discordEnabled: values.discordEnabled,
@@ -754,6 +827,26 @@ export function PipelinesPage() {
                     />
                     {touched.description && errors.description && (
                       <p className="mt-1 text-xs text-rose-300">{errors.description}</p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label htmlFor="rateLimit" className="mb-1 block text-sm text-zinc-300">
+                      Rate Limit (Requests/Min)
+                    </label>
+                    <input
+                      id="rateLimit"
+                      name="rateLimit"
+                      type="number"
+                      min={1}
+                      max={1000}
+                      step={1}
+                      value={values.rateLimit}
+                      onChange={handleChange}
+                      className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-zinc-100"
+                    />
+                    {touched.rateLimit && errors.rateLimit && (
+                      <p className="mt-1 text-xs text-rose-300">{String(errors.rateLimit)}</p>
                     )}
                   </div>
 

@@ -27,6 +27,7 @@ const createPipelineSchema = z.object({
   actionType: z.enum(['CONVERTER', 'EMAIL', 'DISCORD', 'PDF', 'AI_SUMMARIZER'], {
     errorMap: () => ({ message: 'Invalid actionType' }),
   }),
+  rateLimit: z.number().int().min(1).max(1000).optional(),
   enabledActions: z
     .array(z.enum(['CONVERTER', 'EMAIL', 'DISCORD', 'PDF', 'AI_SUMMARIZER']))
     .optional(),
@@ -84,6 +85,7 @@ export function setupPipelineRoutes(app: Express): void {
         name: data.name,
         description: data.description,
         actionType: data.actionType,
+        rateLimit: data.rateLimit,
         enabledActions: data.enabledActions,
         emailEnabled: data.emailEnabled,
         discordEnabled: data.discordEnabled,
@@ -250,6 +252,7 @@ export function setupPipelineRoutes(app: Express): void {
         name: data.name,
         description: data.description,
         actionType: data.actionType,
+        rateLimit: data.rateLimit,
         config: data.config as any,
       });
 
@@ -306,6 +309,7 @@ export function setupPipelineRoutes(app: Express): void {
         name: data.name,
         description: data.description,
         actionType: data.actionType,
+        rateLimit: data.rateLimit,
         config: data.config as any,
       });
 

@@ -8,6 +8,7 @@ export interface CreatePipelineDTO {
   name: string;
   description?: string;
   actionType: string;
+  rateLimit?: number;
   enabledActions?: string[];
   emailEnabled?: boolean;
   discordEnabled?: boolean;
@@ -66,6 +67,7 @@ export async function createPipeline(
         name: data.name,
         description: data.description,
         actionType: data.actionType as any,
+        rateLimit: data.rateLimit,
         enabledActions: normalizedEnabledActions,
         emailEnabled: data.emailEnabled,
         discordEnabled: data.discordEnabled,
@@ -215,6 +217,7 @@ export async function updatePipeline(
     if (data.name !== undefined) updateData.name = data.name;
     if (data.description !== undefined) updateData.description = data.description;
     if (data.actionType !== undefined) updateData.actionType = data.actionType;
+    if (data.rateLimit !== undefined) updateData.rateLimit = data.rateLimit;
     if (data.config !== undefined) updateData.config = data.config;
 
     const pipeline = await prisma.pipeline.update({

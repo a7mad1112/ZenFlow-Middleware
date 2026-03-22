@@ -2,6 +2,7 @@ import { type Express, type Request, type Response } from 'express';
 import { z } from 'zod';
 import { ingestWebhook, getTaskStatus } from '../controllers/webhook.controller.js';
 import { logger } from '../../shared/logger.js';
+import { webhookIngestionRateLimiter } from '../../middleware/rate-limiter.js';
 
 // Validate incoming webhook payload (accept any JSON)
 const ingestWebhookSchema = z.object({
@@ -10,15 +11,15 @@ const ingestWebhookSchema = z.object({
 
 export function setupWebhookRoutes(app: Express): void {
   /**
-   * POST /api/webhooks/:webhookId
+   * POST /api/webhooks/:pipelineId
    * Ingests webhook data for a specific webhook and queues it for processing
    *
-   * @param webhookId - The webhook ID from URL params
+   * @param pipelineId - The pipeline ID from URL params
    * @body payload - Any JSON object to be processed
    * @returns 202 Accepted with tracking logId
    */
-  app.post('/api/webhooks/:webhookId', async (req: Request, res: Response): Promise<void> => {
-    const { webhookId } = req.params;
+  app.post('/api/webhooks/:pipelineId', webhookIngestionRateLimiter, async (req: Request, res: Response): Promise<void> => {
+    const { pipelineId } = req.params;
 
     try {
       // Validate incoming body
@@ -27,15 +28,15 @@ export function setupWebhookRoutes(app: Express): void {
       });
 
       logger.info('Webhook ingestion initiated', {
-        webhookId: webhookId,
+        webhookId: pipelineId,
         payloadSize: JSON.stringify(req.body).length,
       });
 
       // Ingest webhook and queue job
-      const result = await ingestWebhook(webhookId, validatedData);
+      const result = await ingestWebhook(pipelineId, validatedData);
 
       logger.info('Webhook ingested successfully', {
-        webhookId: webhookId,
+        webhookId: pipelineId,
         taskId: result.id,
         jobId: result.jobId,
       });
@@ -55,11 +56,11 @@ export function setupWebhookRoutes(app: Express): void {
         error instanceof Error &&
         error.message.includes('not found')
       ) {
-        logger.warn('Webhook not found for ingestion', { webhookId });
+        logger.warn('Webhook not found for ingestion', { webhookId: pipelineId });
         res.status(404).json({
           success: false,
           message: 'Webhook not found',
-          webhookId: webhookId,
+          webhookId: pipelineId,
         });
         return;
       }
@@ -71,13 +72,13 @@ export function setupWebhookRoutes(app: Express): void {
           error.message.includes('No active webhook configuration found for event type'))
       ) {
         logger.warn('Webhook payload/event routing validation failed', {
-          webhookId,
+          webhookId: pipelineId,
           error: error.message,
         });
         res.status(400).json({
           success: false,
           message: error.message,
-          webhookId,
+          webhookId: pipelineId,
         });
         return;
       }
@@ -87,11 +88,11 @@ export function setupWebhookRoutes(app: Express): void {
         error instanceof Error &&
         error.message.includes('inactive')
       ) {
-        logger.warn('Webhook is inactive', { webhookId });
+        logger.warn('Webhook is inactive', { webhookId: pipelineId });
         res.status(400).json({
           success: false,
           message: 'Webhook is inactive',
-          webhookId: webhookId,
+          webhookId: pipelineId,
         });
         return;
       }
@@ -99,7 +100,7 @@ export function setupWebhookRoutes(app: Express): void {
       // Handle validation errors (400)
       if (error instanceof z.ZodError) {
         logger.warn('Webhook payload validation failed', {
-          webhookId: webhookId,
+          webhookId: pipelineId,
           errors: error.errors,
         });
         res.status(400).json({
@@ -112,14 +113,14 @@ export function setupWebhookRoutes(app: Express): void {
 
       // Handle all other errors (500)
       logger.error('Failed to ingest webhook', {
-        webhookId: webhookId,
+        webhookId: pipelineId,
         error: error instanceof Error ? error.message : String(error),
         stack: error instanceof Error ? error.stack : undefined,
       });
       res.status(500).json({
         success: false,
         message: 'Internal server error',
-        webhookId: webhookId,
+        webhookId: pipelineId,
       });
     }
   });

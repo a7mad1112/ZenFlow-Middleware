@@ -374,7 +374,7 @@
   - default increased from `20` to `50`.
 
 ## Architecture Flow (Current)
-- External Event Ingestion Path: `POST /api/webhooks/:id` -> eventType match (`eventType` | `type` | `event`) -> active WebhookConfiguration selection -> queue -> worker actions -> logs/dashboard.
+- External Event Ingestion Path: `POST /api/webhooks/:pipelineId` -> pipeline-scoped dynamic rate limit (from `Pipeline.rateLimit`, fallback `60`, keyed by `pipelineId`, fallback IP, cached in-memory) -> eventType match (`eventType` | `type` | `event`) -> active WebhookConfiguration selection -> queue -> worker actions -> logs/dashboard.
 - Internal Manual Dispatch Path: Dashboard `Run Pipeline` modal -> `POST /api/pipelines/:id/trigger` -> task creation (`origin: MANUAL`) -> queue -> worker actions -> logs/dashboard.
 - Outbound Middleware Path: worker completion -> validate active core actions (`XML`, `AI`, `PDF`) succeeded with outputs -> subscriber lookup (`Subscriber.isActive`) -> unified result dispatch (5s timeout) -> per-delivery auditing in `delivery_logs`.
 - Discord Routing Priority: matched webhook `targetUrl/url` -> configured fallback webhook URL (`DISCORD_WEBHOOK_URL`) -> skip with reason if no message content.
@@ -473,6 +473,29 @@
   - `xml`
   - `ai`
   - `pdf`
+
+### 43. Webhook Ingestion Rate Limiting + Throttling (Complete)
+- Installed `express-rate-limit` and added dedicated middleware at `src/middleware/rate-limiter.ts`.
+- Enforced per-minute throttle for inbound ingestion with dynamic pipeline-level configuration:
+  - `windowMs: 60_000`
+  - `limit: Pipeline.rateLimit` (default fallback `60`)
+- Keying strategy is pipeline-first to prevent single-pipeline flooding:
+  - primary key: `req.params.pipelineId`
+  - fallback key: requester IP.
+- Added in-memory cache for pipeline limits to reduce database lookups on hot ingestion paths:
+  - cache key: `pipelineId`
+  - TTL: `5 minutes`.
+- Applied middleware only to ingestion endpoint in `src/api/routes/webhook.routes.ts`:
+  - `POST /api/webhooks/:pipelineId`
+  - dashboard/control endpoints remain unaffected.
+- Added custom `429 Too Many Requests` JSON response:
+  - `{ error: 'Too many requests, please try again later.', retryAfter: '60s' }`.
+
+### 44. Pipeline Rate Limit Configuration (Dashboard + API) (Complete)
+- Added `rateLimit` field to `Pipeline` model in Prisma (`Int? @default(60)`).
+- Create/Update pipeline API contracts now accept `rateLimit` with validation bounds (`1..1000`).
+- Dashboard pipeline creation form now includes `Rate Limit (Requests/Min)` input.
+- Dashboard pipeline cards now include an edit control to update per-pipeline rate limit inline.
 
 ## Milestones
 1. Backend Automation Platform: Complete

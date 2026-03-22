@@ -1,0 +1,2 @@
+ALTER TABLE "pipelines"
+ADD COLUMN "rateLimit" INTEGER DEFAULT 60;

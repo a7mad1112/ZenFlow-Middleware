@@ -23,6 +23,7 @@ model Pipeline {
   name        String      @unique
   description String?
   actionType  ActionType  @default(CONVERTER)
+  rateLimit   Int?        @default(60)
   enabledActions String[] @default(["DISCORD", "EMAIL"])
   discordEnabled Boolean   @default(true)
   emailEnabled   Boolean   @default(true)

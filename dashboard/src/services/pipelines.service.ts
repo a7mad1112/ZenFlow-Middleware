@@ -7,6 +7,7 @@ export interface Pipeline {
   name: string;
   description?: string | null;
   actionType: ActionType;
+  rateLimit: number;
   enabledActions: ActionType[];
   discordEnabled: boolean;
   emailEnabled: boolean;
@@ -37,6 +38,7 @@ export interface CreatePipelineInput {
   name: string;
   description?: string;
   actionType: ActionType;
+  rateLimit?: number;
   enabledActions: ActionType[];
   discordEnabled: boolean;
   emailEnabled: boolean;
@@ -47,6 +49,7 @@ export interface UpdatePipelineInput {
   name?: string;
   description?: string;
   actionType?: ActionType;
+  rateLimit?: number;
   enabledActions?: ActionType[];
   discordEnabled?: boolean;
   emailEnabled?: boolean;
@@ -95,6 +98,10 @@ function normalizePipeline(input: Partial<Pipeline>): Pipeline {
     actionType: (ACTION_KEYS.includes(input.actionType as ActionType)
       ? (input.actionType as ActionType)
       : 'CONVERTER'),
+    rateLimit:
+      typeof input.rateLimit === 'number' && Number.isFinite(input.rateLimit)
+        ? Math.max(1, Math.min(1000, Math.floor(input.rateLimit)))
+        : 60,
     enabledActions: enabled,
     discordEnabled: Boolean(input.discordEnabled),
     emailEnabled: Boolean(input.emailEnabled),

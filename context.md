@@ -401,6 +401,21 @@
   - Tasks now persist source origin as `MANUAL` or `WEBHOOK` in execution metadata.
   - Logs API and dashboard expose this origin for filtering, badges, and post-incident traceability.
 
+### 38. Destructive Delete Confirmation UX Hardening (Complete)
+- Added reusable confirmation dialog component for destructive actions in `dashboard/src/components/ui/confirmation-modal.tsx`.
+- Modal implementation is accessibility-focused:
+  - `role="dialog"` + `aria-modal="true"`
+  - `aria-labelledby` / `aria-describedby`
+  - keyboard Escape-to-close handling
+  - focus-trap behavior with tab loop while dialog is open.
+- Integrated delete flow in `dashboard/src/pages/pipelines-page.tsx`:
+  - delete button now opens a dedicated confirmation modal before any destructive action executes
+  - action is visually styled as destructive (red semantic button)
+  - loading state is shown during deletion to prevent duplicate submissions.
+- Added post-delete user feedback in pipelines dashboard:
+  - success notification card after confirmed deletion
+  - error notification card when deletion fails.
+
 ## Milestones
 1. Backend Automation Platform: Complete
 2. Worker Orchestration and Action Pipeline: Complete

@@ -6,6 +6,7 @@ import { ArrowRight, Loader2, Play, Plus, Trash2, X } from 'lucide-react';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
 import { Card } from '../components/ui/card';
+import { ConfirmationModal } from '../components/ui/confirmation-modal';
 import {
   createPipeline,
   createPipelineWebhook,
@@ -131,6 +132,7 @@ export function PipelinesPage() {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [triggerResult, setTriggerResult] = useState<{ taskId: string; pipelineName: string } | null>(null);
   const [busyAction, setBusyAction] = useState<string | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<{ id: string; name: string } | null>(null);
 
   const defaultTriggerPayload = JSON.stringify(
     {
@@ -199,12 +201,18 @@ export function PipelinesPage() {
 
   const pipelineCountLabel = useMemo(() => `${pipelines.length} pipeline(s)`, [pipelines.length]);
 
-  async function handleDelete(id: string) {
-    setBusyAction(`delete:${id}`);
+  async function handleDelete() {
+    if (!pendingDelete) {
+      return;
+    }
+
+    setBusyAction(`delete:${pendingDelete.id}`);
     setErrorMessage(null);
     setSuccessMessage(null);
     try {
-      await deletePipeline(id);
+      await deletePipeline(pendingDelete.id);
+      setSuccessMessage(`Pipeline \"${pendingDelete.name}\" deleted successfully.`);
+      setPendingDelete(null);
       await fetchPipelines();
     } catch {
       setErrorMessage('Unable to delete pipeline.');
@@ -350,7 +358,7 @@ export function PipelinesPage() {
                 <Button
                   variant="ghost"
                   className="px-2"
-                  onClick={() => handleDelete(pipeline.id)}
+                  onClick={() => setPendingDelete({ id: pipeline.id, name: pipeline.name })}
                   disabled={busyAction === `delete:${pipeline.id}`}
                   aria-label="Delete pipeline"
                 >
@@ -847,6 +855,20 @@ export function PipelinesPage() {
             </Formik>
           </Card>
         </div>
+      )}
+
+      {pendingDelete && (
+        <ConfirmationModal
+          title="Delete Pipeline"
+          description={`This action is permanent and cannot be undone. Delete \"${pendingDelete.name}\"?`}
+          onConfirm={handleDelete}
+          onClose={() => {
+            if (busyAction !== `delete:${pendingDelete.id}`) {
+              setPendingDelete(null);
+            }
+          }}
+          isLoading={busyAction === `delete:${pendingDelete.id}`}
+        />
       )}
     </section>
   );

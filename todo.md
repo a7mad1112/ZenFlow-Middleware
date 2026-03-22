@@ -1,19 +1,99 @@
-# Remaining Tasks Checklist (Audit Follow-up)
+Phase 0: UX & Safety (Immediate Impact)
+Goal: Prevent accidental data loss and improve user confidence.
 
-## Backend & API Gaps
-- [x] Implement `GET /api/pipelines/:id/health` (Readiness checks for SMTP, Gemini, Discord).
-- [x] Implement `PATCH /api/pipelines/:id/actions` (Dedicated endpoint for clean action toggling).
-- [x] Hardening: Isolate Discord/Email failures so they don't fail the entire task (Channel-specific error logging).
+[x] Destructive Action Guards:
 
-## Dashboard UI Enhancements
-- [x] Add Filters to Logs Table (Status, Pipeline, Risk Level, Date Range).
-- [x] Add "Webhook/Event Type" column to the Logs table.
-- [x] Display "Action Type" and "Created Date" in Pipeline cards.
-- [x] Add "Action Preview" (Visual flow) before saving pipeline changes.
+[x] Implement a Confirmation Modal for deleting Pipelines.
 
-## Logic & Reliability
-- [x] Implement `skipEmail` and future `skipAI` / `skipPDF` flags in the Worker engine.
-- [x] Implement Worker-level check for `emailEnabled` and `enabledActions` (Strict enforcement).
+[x] Add a "Type-to-Confirm" or a simple "Are you sure?" toggle to prevent accidental one-click deletions.
 
-## DevOps
-- [x] Convert Frontend Dockerfile to Multi-stage (Build with Node -> Serve with Nginx).
+[x] Ensure a success/error toast notification appears after the deletion is finalized.
+
+Phase 1: Reliability & Advanced Retry Logic
+Goal: Ensure the system is resilient to partial failures and cost-efficient.
+
+[ ] Partial/Atomic Retry Mechanism:
+
+Refactor the Worker Engine to support re-running only failed actions (e.g., if XML/AI succeeded but Email failed, retry only the Email).
+
+Persist individual action states (success, failed, skipped) within the task metadata to prevent redundant API calls or double-billing on Gemini tokens.
+
+[ ] Smart Exponential Backoff:
+
+Configure pg-boss with an escalating retry strategy: 10s → 20s → 40s → 1m → 2m.
+
+This ensures quick recovery for minor network blips while backing off to protect resources.
+
+[ ] Dead Letter Queue (DLQ) & Recovery:
+
+Add a "Stuck Tasks" tab in the Dashboard for jobs that exhausted all 5 retries.
+
+Implement a "Manual Re-queue" button to force a final attempt after fixing external issues (like updating an expired API key).
+
+Phase 2: Outbound Connectors (Subscriber Delivery)
+Goal: Transform the platform into a Middleware for programmatic systems.
+
+[ ] Subscriber Management System:
+
+Schema update: Create a Subscribers table linked to Pipelines (1:N).
+
+UI: Add a management section for external target URLs (Webhooks Outbound).
+
+[ ] Outbound Webhook Dispatcher:
+
+Build a Dispatcher Service to perform HTTP POST requests to external systems upon task completion.
+
+Standardize the "Unified Result" payload (XML body + AI Insight + PDF URL + Audit Metadata).
+
+[ ] Delivery Auditing:
+
+Log every outbound attempt with HTTP status codes and response bodies for external troubleshooting.
+
+Phase 3: Security & Performance Hardening
+Goal: Protect the ingestion layer and ensure scalability.
+
+[ ] Webhook Signature Verification (HMAC):
+
+Generate and store a Secret Key per Pipeline.
+
+Add middleware to validate incoming X-Hub-Signature or Authorization headers to ensure data authenticity.
+
+[ ] Rate Limiting & Throttling:
+
+Implement express-rate-limit to prevent "Webhook Flooding" at the ingestion layer.
+
+[ ] Idempotency Guard:
+
+Ensure the system ignores duplicate Webhook IDs within a 24-hour window to prevent double-processing.
+
+Phase 4: Quality Assurance & CI/CD
+Goal: Maintain high code quality and stable releases.
+
+[ ] Automated Testing Suite (Jest):
+
+Unit Tests for core services (XML, PDF, Gemini Prompting).
+
+Integration Tests for the full Ingestion -> Queue -> Worker lifecycle.
+
+[ ] GitHub Actions CI:
+
+Automate Lint, Build, and Test checks on every Push/Pull Request.
+
+[ ] Interactive API Docs:
+
+Setup Swagger/OpenAPI so external users know how to interact with your API.
+
+Phase 5: AI Ops & Intelligence
+Goal: Transition from "Monitoring" to "Predictive Operations".
+
+[ ] Proactive Anomaly Detection:
+
+Use Gemini to analyze failed logs and flag patterns (e.g., "Pipeline X is failing because the input JSON structure changed").
+
+[ ] Smart Payload Diffing:
+
+A UI tool to visually compare the JSON of a Successful task vs. a Failed task to find missing fields quickly.
+
+[ ] Token Usage & Cost Tracking:
+
+Track Gemini 2.5 Flash token consumption per Pipeline and display it in the analytics dashboard.

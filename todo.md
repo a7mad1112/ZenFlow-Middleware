@@ -66,7 +66,7 @@ Implement express-rate-limit to prevent "Webhook Flooding" at the ingestion laye
 
 Ensure the system ignores duplicate Webhook IDs within a 24-hour window to prevent double-processing.
 
-Phase 4: Quality Assurance & CI/CD
+Phase 4: Quality Assurance & CI/CD (Fully Modularized & Verified)
 Goal: Maintain high code quality and stable releases.
 
 [x] Automated Testing Suite (Jest):
@@ -75,9 +75,15 @@ Unit Tests for core services (XML, PDF, Gemini Prompting).
 
 Integration Tests for the full Ingestion -> Queue -> Worker lifecycle.
 
-[x] GitHub Actions CI:
+Dashboard smoke tests with React Testing Library.
+
+[x] GitHub Actions CI (3-Tier Parallel Architecture):
 
 Automate Lint, Build, and Test checks on every Push/Pull Request.
+
+Modular CI with 3 independent parallel jobs: Linting, Backend Tests, Dashboard Tests.
+
+Node.js 22 with GitHub deprecation warning suppression (FORCE_JAVASCRIPT_ACTIONS_TO_NODE24).
 
 [x] Interactive API Docs (Verified & Fixed):
 

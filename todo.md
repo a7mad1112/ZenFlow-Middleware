@@ -69,13 +69,13 @@ Ensure the system ignores duplicate Webhook IDs within a 24-hour window to preve
 Phase 4: Quality Assurance & CI/CD
 Goal: Maintain high code quality and stable releases.
 
-[ ] Automated Testing Suite (Jest):
+[x] Automated Testing Suite (Jest):
 
 Unit Tests for core services (XML, PDF, Gemini Prompting).
 
 Integration Tests for the full Ingestion -> Queue -> Worker lifecycle.
 
-[ ] GitHub Actions CI:
+[x] GitHub Actions CI:
 
 Automate Lint, Build, and Test checks on every Push/Pull Request.
 

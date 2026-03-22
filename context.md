@@ -6,6 +6,10 @@
 - Product Readiness: 100% of dashboard.md requirements implemented
 - Primary Capability: End-to-end webhook automation with AI-assisted operations diagnostics (RAG chat over live system context)
 
+## Local Testing
+- Run all tests: `npm test`
+- Test suite uses Jest + Supertest with mocked external APIs (Gemini) for fast and deterministic execution.
+
 ## Current Progress
 
 ### 1. Ingestion API (Webhooks / Pipelines)

@@ -2,7 +2,7 @@
 
 **High-Performance AI-Driven Webhook Orchestrator**
 
-[![CI](https://github.com/YOUR_USERNAME/YOUR_REPO/actions/workflows/ci.yml/badge.svg)](https://github.com/YOUR_USERNAME/YOUR_REPO/actions/workflows/ci.yml)
+[![CI](https://github.com/a7mad1112/ZenFlow-Middleware/actions/workflows/ci.yml/badge.svg)](https://github.com/a7mad1112/ZenFlow-Middleware/actions/workflows/ci.yml)
 [![Node.js](https://img.shields.io/badge/Node.js-22-green.svg)](https://nodejs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-blue.svg)](https://www.typescriptlang.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -180,8 +180,8 @@ The GitHub Actions workflow implements a **3-tier parallel architecture** for fa
 
 ```bash
 # Clone the repository
-git clone <repository-url>
-cd webhook
+git clone https://github.com/a7mad1112/ZenFlow-Middleware.git
+cd ZenFlow-Middleware
 
 # Configure environment variables
 cp .env.example .env
